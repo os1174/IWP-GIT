@@ -36,7 +36,7 @@ const int max_pause_while_pumping = 102;  //The maximum time (1sec) the handle c
                                           //motionless before we declare that the 
                                           //user has given up trying to pump
                                           //Assumes the pumping loop takes 9.8ms, (102hz sampling)
-long leakRateTimeOut = 30000; // Maximum number of milliseconds to wait for water to drain when calculating leak rate 
+long leakRateTimeOut = 1200000; // Maximum number of milliseconds to wait for water to drain when calculating leak rate (20 minutes)
 const int decimalAccuracy = 3; // Number of decimal places to use when converting floats to strings
 const float angleThresholdSmall = 0.1; //number close to zero to determine if handle is moving w/o interpreting accelerometer noise as movement.
 const float handleMovementThreshold = 5.0; // When the handle has moved this many degrees from rest, we start calculating priming 

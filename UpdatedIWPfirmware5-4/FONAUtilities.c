@@ -33,9 +33,6 @@ char DebugphoneNumber[15]; //Defined during initialization
 //char MainphoneNumber[]="+17177784498"; // Upside Wireless
 char origMainphoneNumber[]="+17177784498"; // Upside
 char MainphoneNumber[15]; //Defined during initialization
-
-char JaredPhoneNumber[]="+17175889357"; //Jared Phone number for debug
-
 //char origMainphoneNumber[]="+17176837704"; //Sue
 char origCountryCode[] = "+254"; // This is Kenya 
 char CountryCode[6];
@@ -1618,11 +1615,6 @@ int SendSavedDailyReports(void){
         effective_address = ((message_position - 1)*16)+DailyReportEEPromStart;
         // Create the message including adding the hour
         CreateNoonMessage(effective_address);  //Gather the data into the array SMSMessage
-        
-        // send the message to Jared number for debug
-        //phoneNumber = JaredPhoneNumber;
-        //sendTextMessage(SMSMessage);
-        
         // send the message and check for the reply that it was sent
         phoneNumber = MainphoneNumber;  // Make sure we are sending to the proper destination
         ready = sendTextMessage(SMSMessage);  
