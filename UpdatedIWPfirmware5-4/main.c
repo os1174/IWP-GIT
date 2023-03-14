@@ -113,7 +113,7 @@ void main(void)
     sendDebugMessage("The revision number of this code is ",codeRevisionNumber); //Debug
     TimeSinceLastHourCheck = 0;
     // Jared was here
-    // we should remove this
+    // we should remove this part 2
     print_debug_messages = temp_debug_flag;                          // Go back to setting chosen by user
     nextTechAtPumpCheck = secondVTCC + 20;  // We want to give ourselves 20sec before
   
