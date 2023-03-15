@@ -99,7 +99,6 @@ void main(void)
     //   Note: selecting 1 or 2 will change some system timing since it takes 
     //         time to form and send a serial message
     print_debug_messages = 1;       //DEBUG CHANGED TO A 1 SO THAT WE RECIEVE MESSAGES
-    waterPresenceSensorOnOffPin = 1; //DEBUG TURN ON THE WATER PRESENCE SENSOR
     int temp_debug_flag = print_debug_messages;
     
     EEProm_Read_Float(EEpromCodeRevisionNumber,&codeRevisionNumber); //Get the current code revision number from EEPROM
@@ -132,7 +131,6 @@ void main(void)
                                                                      // This is our reference when looking for sufficient movement to say the handle is actually moving.  
                                                                      // the "moving" threshold is defined by handleMovementThreshold in IWPUtilities
 		handleMovement = 0;                                          // Set the handle movement to 0 (handle is not moving)
-        handleMovement = 1; // DEBUG LEAK RATE TESTING
 		while (handleMovement == 0){
             pumping_Led = 0;   //Turn off pumping led - red
             if(techNotAtPump == 0){ // There is a tech at the pump so we want to 
@@ -169,9 +167,9 @@ void main(void)
         angleCurrent = angleAtRest;  // Priming movement includes the movement 
                                      // needed to declare that someone has started pumping
         pumping_Led = 1;   //Turn on pumping led - red
-        int primed = 1; // WaitForPrime(angleCurrent);  // Measure effort to Prime Pump
+        int primed = WaitForPrime(angleCurrent);  // Measure effort to Prime Pump
         if(primed){
-            float volumeDispensed = 5; // DEBUG LEAK RATE TESTING Volume();   // Measure the Volume Pumped
+            float volumeDispensed = Volume();   // Measure the Volume Pumped
             float leakMeasured = LeakRate(volumeDispensed); // Measure the Leak Rate (L/hr)
             sendDebugMessage("Pumped (L): ",volumeDispensed); //Debug
             sendDebugMessage("Leak Rate (L/hr) = ",leakMeasured); //Debug
@@ -503,15 +501,12 @@ float LeakRate(float volumeEvent){
     }
      // Now we need to calculate leak rate and save it if we have a valid basis to calculate
     T4CONbits.TON = 0; // Stops 16-bit Timer4 (inc every 64usec)
-    //DEBUG WE DONT WANT TO SHUT IT OFF   waterPresenceSensorOnOffPin = 0; //turn OFF the water presence sensor
+    waterPresenceSensorOnOffPin = 0; //turn OFF the water presence sensor
     if(validLeakRate){
         //Calculate a new leak rate
-        //leakDurationCounter = 120000;   //DEBUG setting leakDurationCounter to 20 minutes (120000) and resetting leakRateLong to make sure it will be overwritten
-        //leakRateLong = 0;               //DEBUG For leakDurrationCounter = 120000 (60000) we want leak rates of 
-                                          //1.08E-4 (2.171E-4) L/s and 0.3907 (0.78156) L/H
         leakRateCurrent = leakSensorVolume * 3600 / ((leakDurationCounter * 9.98) / 1000.0); // L/H
 
-        /* DEBUG Possible lines for extremes of leak rate testing (117 seconds to 20 minutes)
+        /* Possible lines for extremes of leak rate testing (117 seconds to 20 minutes)
         
         long leakDurationHours = ((leakDurationCounter * 9.98) / 1000.0);    //DEBUG leak duration in hours, making calculations easier since we are only concerned about L/H now
 
@@ -534,19 +529,18 @@ float LeakRate(float volumeEvent){
             sendDebugMessage("Inform Jared Groff")
         }
         else{
-            
         */
         
-        sendDebugMessage("Leak Rate (L/hour) = ", leakRateCurrent);  //Debug
-        sendDebugMessage("  - Leak Rate Long = ", leakRateLong);  //Debug
-        sendDebugMessage("Elapsed Time (sec): ", (leakDurationCounter * 9.98 / 1000)); //DEBUG need to ensure the timer is correct
+        sendDebugMessage("Leak Rate (L/hour) = ", leakRateCurrent);  
+        sendDebugMessage("  - Leak Rate Long = ", leakRateLong);  
+        sendDebugMessage("Elapsed Time (sec): ", (leakDurationCounter * 9.98 / 1000)); 
         if ((leakRateCurrent) > leakRateLong)
 		{
 			leakRateLong = leakRateCurrent;  //Liters/hour
-            EEProm_Write_Float(EELeakRateLongCurrent,&leakRateLong);                   // Save to EEProm DEBUG going through it says that EELeakRateLongCurrent is 0x0000
-            sendDebugMessage("Saved new longest leak rate to EEProm ", leakRateLong);  //Debug
+            EEProm_Write_Float(EELeakRateLongCurrent,&leakRateLong);                   // Save to EEProm
+            sendDebugMessage("Saved new longest leak rate to EEProm ", leakRateLong);
 		}
-        //}     DEBUG needed for else statement
+        //}     Bracket needed for possible else statement for the extreme cases
     }
     return leakRateCurrent;
 }
