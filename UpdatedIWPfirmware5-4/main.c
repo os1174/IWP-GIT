@@ -232,15 +232,16 @@ int WaitForPrime(float primeAngleCurrent){
             // Has the handle stopped moving?
 			if((angleDelta > (-1*angleThresholdSmall)) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
                 stopped_pumping_index++; // we want to stop if the user stops pumping
+                pumping_Led = 0;   //Turn off pumping led - red
                 if((stopped_pumping_index) > max_pause_while_priming){  // They quit trying for at least 10 seconds
                     sendDebugMessage("        Stopped trying to prime   ", upStrokePrime);  //Debug
                     quit = 1;
-                    pumping_Led = 0;   //Turn off pumping led - red
                     waterPresenceSensorOnOffPin = 0; //turn OFF the water presence sensor
                     break;
                 }
 			} else{
                 stopped_pumping_index=0;   // they are still trying
+                pumping_Led = 1;   //Turn on pumping led - red
 			}
             // Are they lifting water so we should add this delta to our sum?            
 			if(angleDelta < 0) {  //Determines direction of handle movement
@@ -337,7 +338,7 @@ float Volume(void){
             
             
             /////////////////////////////////////
-            sendDebugMessage("", angleCurrent);     //Shows stream of angles in radians
+            // Debug - Development sendDebugMessage("", angleCurrent);     //Shows stream of angles in radians
             /////////////////////////////////////
             
             
@@ -345,8 +346,9 @@ float Volume(void){
             // Has the handle stopped moving?
             if((angleDelta > (-1*angleThresholdSmall)) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
                 stopped_pumping_index++; // we want to stop if the user stops pumping
+                pumping_Led = 0;   //Turn OFF pumping led - red
                 if((stopped_pumping_index) > max_pause_while_pumping){  // They quit trying for at least 1 second
-                    pumping_Led = 0;   //Turn OFF pumping led - red
+                    
                     dispensing = 0; // no longer moving the handle
                     sendDebugMessage("        Stopped pumping   ", -1);  //Debug
                     if(StrokeStarting == 1){
@@ -355,6 +357,7 @@ float Volume(void){
                 }
             } else{
                 stopped_pumping_index=0;   // they are still trying
+                pumping_Led = 1;   //Turn ON pumping led - red
             }
             // Are they lifting water so we should add this delta to our sum?            
             if(angleDelta < 0) {  //Determines direction of handle movement
