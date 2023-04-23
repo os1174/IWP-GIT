@@ -9,7 +9,7 @@
 #include <p24FV32KA302.h>
 
 
-float codeRevisionNumber = 6.03;  //Current as of 4/20/2023
+float codeRevisionNumber = 6.1;  //Current as of 4/23/2023
 
 int __attribute__((space(eedata))) eeData; // Global variable located in EEPROM
 
@@ -1595,7 +1595,7 @@ int HasTheHandleStartedMoving(float rest_position){
  *            moving are needed to get a good estimate of volume.  This function
  *            implements a quadratic equation empirically determined on the
  *            Bitner pump.             
- * TestDate: NOT TESTED
+ * TestDate: Changed 4/20/2023 NOT TESTED
  ********************************************************************/
 float CalculateVolume(float pumpingMovement,float pumpSeconds){
     float pumpLiters = 0;
@@ -1605,7 +1605,7 @@ float CalculateVolume(float pumpingMovement,float pumpSeconds){
         timePerRad = quadVertex;    // if above case, set the time per radian to the minimum defined value
     }
     // calculate volume based on quadratic trend line
-    //pumpLiters = ((-b - sqrt((b*b) - (4 * (a) * (c - (timePerRad))))) / (2*a)) * pumpingMovement; 
+    //pumpLiters = ((-b - sqrt((b*b) - (4 * (a) * (c - (timePerRad))))) / (2*a)) * pumpingMovement;
     //sendDebugMessage("Single Equation Volume Pumped = ", pumpLiters);  //Debug
     if (timePerRad > 2.25) {        //If determined to be in slow pumping cluster
         pumpLiters = (.0227*(timePerRad)+.2571)*pumpingMovement;
@@ -1624,7 +1624,6 @@ float CalculateVolume(float pumpingMovement,float pumpSeconds){
     }
     return pumpLiters;
 }
-
 /*********************************************************************
  * Function: void _T2Interrupt(void)
  * Input: none
