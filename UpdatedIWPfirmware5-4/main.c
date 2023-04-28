@@ -232,15 +232,16 @@ int WaitForPrime(float primeAngleCurrent){
             // Has the handle stopped moving?
 			if((angleDelta > (-1*angleThresholdSmall)) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
                 stopped_pumping_index++; // we want to stop if the user stops pumping
+                pumping_Led = 0;   //Turn off pumping led - red
                 if((stopped_pumping_index) > max_pause_while_priming){  // They quit trying for at least 10 seconds
                     sendDebugMessage("        Stopped trying to prime   ", upStrokePrime);  //Debug
                     quit = 1;
-                    pumping_Led = 0;   //Turn off pumping led - red
                     waterPresenceSensorOnOffPin = 0; //turn OFF the water presence sensor
                     break;
                 }
 			} else{
                 stopped_pumping_index=0;   // they are still trying
+                pumping_Led = 1;   //Turn on pumping led - red
 			}
             // Are they lifting water so we should add this delta to our sum?            
 			if(angleDelta < 0) {  //Determines direction of handle movement
@@ -292,16 +293,16 @@ int WaitForPrime(float primeAngleCurrent){
  *            Uses total lifting angle and time to determine the Liters of water
  *            which has been dispensed and adds this to the proper volume bin
  *            depending upon the current 2hr time window of the pumping             
- * TestDate: NOT TESTED
+ * TestDate: Modified 4/20/2023 NOT TESTED
  ********************************************************************/
 float Volume(void){
     float angleDelta = 0; // Stores the difference between the current and previous angles
     float upStrokeExtract = 0; // Stores the cumulative lifting water handle movement in degrees
     float volumeEvent; //Liters of water dispensed
     int stopped_pumping_index = 0; // Used to time how long the handle is stopped
-    int dispensing = 1;  // Assume we are still dispensing water 
+    int dispensing = 1;  // Assume we are still dispensing water
                          // (water is there and we are moving the handle)
-    //sendDebugMessage("\n We are in the Volume Loop ", -0.1);  //Debug
+
     anglePrevious = angleCurrent; // This is where priming left off
     // Record the time that dispensing water begins
     // needed in the calculation of measured volume required to prime
@@ -316,37 +317,31 @@ float Volume(void){
     int StrokeStarting = 1; //Binary indicating that a new pumping stroke has begun
     float MinStrokeRange = 10;  //degrees, roughly moving handle through 10"
     int NumStrokes = 0;     // The number of pumping strokes dispensing water
-    
-    ///////////
+    ///////////////////////////
     sendDebugMessage("    we are entering the volume loop   ", -0.1);
     // Turn on the HMS sample timer
     TMR4 = 0;
     T4CONbits.TON = 1; // Starts 16-bit Timer4 (inc every 64usec)
     while(dispensing){  //Water is present and handle is moving
-        ClearWatchDogTimer();     // It is unlikely that we will be pumping for 
+        ClearWatchDogTimer();     // It is unlikely that we will be pumping for
                                   // 130sec without a stop, but we might
         if(readWaterSensor() != 0){ //Water not detected
             dispensing = 0; // no longer dispensing water
             water_Led = 0;  // Turn OFF the Water LED
-        } 
+        }
         else{
             angleCurrent = getHandleAngle(); //gets the filtered current angle
             angleDelta = angleCurrent - anglePrevious;  //determines the amount of handle movement from last reading
             anglePrevious = angleCurrent;               //Prepares anglePrevious for the next loop
-            
-            
-            
             /////////////////////////////////////
-            sendDebugMessage("", angleCurrent);     //Shows stream of angles in radians
+            ///sendDebugMessage("", angleCurrent);     //Shows stream of angles in radians
             /////////////////////////////////////
-            
-            
-            
+
             // Has the handle stopped moving?
             if((angleDelta > (-1*angleThresholdSmall)) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
                 stopped_pumping_index++; // we want to stop if the user stops pumping
+                pumping_Led = 0;   //Turn OFF pumping led - red
                 if((stopped_pumping_index) > max_pause_while_pumping){  // They quit trying for at least 1 second
-                    pumping_Led = 0;   //Turn OFF pumping led - red
                     dispensing = 0; // no longer moving the handle
                     sendDebugMessage("        Stopped pumping   ", -1);  //Debug
                     if(StrokeStarting == 1){
@@ -355,11 +350,11 @@ float Volume(void){
                 }
             } else{
                 stopped_pumping_index=0;   // they are still trying
+                pumping_Led = 1;   //Turn ON pumping led - red
             }
-            // Are they lifting water so we should add this delta to our sum?            
+            // Are they lifting water so we should add this delta to our sum?           
             if(angleDelta < 0) {  //Determines direction of handle movement
                 upStrokeExtract += (-1) * angleDelta;   //If the valve is moving downward, the movement is added to an
-									                //accumulation var
                 if(angleCurrent < MaxUp-MinStrokeRange ){ // A new stroke may be starting
                     if(StrokeStarting==0){//Yes this is the start of a new stroke
                         StrokeStarting = 1;
@@ -386,7 +381,7 @@ float Volume(void){
             }
         }
         while (TMR4 < hmsSampleThreshold); //fixes the sampling rate at about 102Hz
-        TMR4 = 0; //reset the timer before reading WPS            
+        TMR4 = 0; //reset the timer before reading WPS           
     }
     // Pumping has stopped
     T4CONbits.TON = 0; // Turn off HMS sample timer
@@ -408,49 +403,49 @@ float Volume(void){
     sendDebugMessage("  for time slot ", hour);  //Debug
     // Add to the volume bin
     // organize flow into 2 hours bins
-    // The hour was read at the start of the handle movement routine       
-	switch (hour / 2)
-    {
+    // The hour was read at the start of the handle movement routine      
+    switch (hour / 2) {
         case 0:
-			volume02 = volume02 + volumeEvent;
-  			break;
-		case 1:
-			volume24 = volume24 + volumeEvent;
-			break;
-		case 2:
-			volume46 = volume46 + volumeEvent;
-			break;
-		case 3:
-			volume68 = volume68 + volumeEvent;
-			break;
-		case 4:
-			volume810 = volume810 + volumeEvent;
-			break;
-		case 5:
-			volume1012 = volume1012 + volumeEvent;
-			break;
-		case 6:
-			volume1214 = volume1214 + volumeEvent;
-			break;
-		case 7:
-			volume1416 = volume1416 + volumeEvent;
-			break;
-		case 8:
-			volume1618 = volume1618 + volumeEvent;
-			break;
-		case 9:
-			volume1820 = volume1820 + volumeEvent;
-			break;
-		case 10:
-			volume2022 = volume2022 + volumeEvent;
-			break;
-		case 11:
-			volume2224 = volume2224 + volumeEvent;
-			break;
-		}
+            volume02 = volume02 + volumeEvent;
+            break;
+        case 1:
+            volume24 = volume24 + volumeEvent;
+            break;
+        case 2:
+            volume46 = volume46 + volumeEvent;
+            break;
+        case 3:
+            volume68 = volume68 + volumeEvent;
+            break;
+        case 4:
+            volume810 = volume810 + volumeEvent;
+            break;
+        case 5:
+            volume1012 = volume1012 + volumeEvent;
+            break;
+        case 6:
+            volume1214 = volume1214 + volumeEvent;
+            break;
+        case 7:
+            volume1416 = volume1416 + volumeEvent;
+            break;
+        case 8:
+            volume1618 = volume1618 + volumeEvent;
+            break;
+        case 9:
+            volume1820 = volume1820 + volumeEvent;
+            break;
+        case 10:
+            volume2022 = volume2022 + volumeEvent;
+            break;
+        case 11:
+            volume2224 = volume2224 + volumeEvent;
+            break;
+    }
     return volumeEvent;
 }
-/*********************************************************************
+
+ /*********************************************************************
  * Function: float LeakRate(float volumeEvent)
  * Input: the number of liters reported as having been pumped by the Volume Function
  * Output: latest valid leak rate.  Also, if the latest leak rate  is larger 

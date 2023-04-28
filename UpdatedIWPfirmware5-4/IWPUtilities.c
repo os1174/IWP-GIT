@@ -9,7 +9,7 @@
 #include <p24FV32KA302.h>
 
 
-float codeRevisionNumber = 6.02;  //Current as of 3/14/2023
+float codeRevisionNumber = 6.1;  //Current as of 4/23/2023
 
 int __attribute__((space(eedata))) eeData; // Global variable located in EEPROM
 
@@ -228,6 +228,8 @@ void initialization(void) {
     char localYear = 21;
     
     initialIOpinConfiguration(); // Set input/output, digital/analog, default state of pins
+    
+    pumping_Led = 1;   //Turn on pumping led - red So we know we are in the start of the Initialization Function
 
     // Timer 1 control (for WPS and FONA interactions and delayMs function)
     // also used to prevent interactions with the RTCC from hanging
@@ -285,6 +287,7 @@ void initialization(void) {
     BatteryLevelArray[1] = BatteryLevelArray[0]; //Used to track change in battery voltage
     BatteryLevelArray[2] = BatteryLevelArray[0]; //Used to track change in battery voltage
     
+    water_Led = 1;  // Turn on the Water led - green  Moving through the Initialization Functions
     //Initialize the handle position array
     // Fill array with the current unfiltered position
     signed int initxValue = readAdc(xAxisChannel) - signedNumAdjustADC;
@@ -455,7 +458,11 @@ void initialization(void) {
     }
     // just so we know the board is working.  This will flash the cell phone
     // board LED for 2 seconds
-    delayMs(3000);
+    delayMs(1000);
+    pumping_Led = 0;   //Turn off pumping led - red
+    delayMs(1000);
+    water_Led = 0;  // Turn off the Water led - green 
+    delayMs(1000);
     turnOffSIM();
 }
 /////////////////////////////////////////////////////////////////////
@@ -1588,7 +1595,7 @@ int HasTheHandleStartedMoving(float rest_position){
  *            moving are needed to get a good estimate of volume.  This function
  *            implements a quadratic equation empirically determined on the
  *            Bitner pump.             
- * TestDate: NOT TESTED
+ * TestDate: Changed 4/20/2023 NOT TESTED
  ********************************************************************/
 float CalculateVolume(float pumpingMovement,float pumpSeconds){
     float pumpLiters = 0;
@@ -1598,7 +1605,7 @@ float CalculateVolume(float pumpingMovement,float pumpSeconds){
         timePerRad = quadVertex;    // if above case, set the time per radian to the minimum defined value
     }
     // calculate volume based on quadratic trend line
-    //pumpLiters = ((-b - sqrt((b*b) - (4 * (a) * (c - (timePerRad))))) / (2*a)) * pumpingMovement; 
+    //pumpLiters = ((-b - sqrt((b*b) - (4 * (a) * (c - (timePerRad))))) / (2*a)) * pumpingMovement;
     //sendDebugMessage("Single Equation Volume Pumped = ", pumpLiters);  //Debug
     if (timePerRad > 2.25) {        //If determined to be in slow pumping cluster
         pumpLiters = (.0227*(timePerRad)+.2571)*pumpingMovement;
@@ -1617,7 +1624,6 @@ float CalculateVolume(float pumpingMovement,float pumpSeconds){
     }
     return pumpLiters;
 }
-
 /*********************************************************************
  * Function: void _T2Interrupt(void)
  * Input: none
