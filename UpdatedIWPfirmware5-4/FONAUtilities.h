@@ -82,6 +82,7 @@ void UpdateSendingPhoneNumber(void); //If the sending number is local, remove co
 void ChangeDailyReportPhoneNumber(void); //Changes the number used for daily reports MainphoneNumber[]
 void PhonenumberToEEPROM(int,char*); // Saves a phone number string to two EEPROM locations
 void EEPROMtoPhonenumber(int EEoffset, char *DynamicPhoneNumber);
+void Initialize4G(void);  //Send AT commands to initialize the ublox chip
 
 
 

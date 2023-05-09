@@ -54,8 +54,8 @@ int op_search_t = 180000; //amount of time it takes for +COPS to search for oper
 int diagPCBpluggedIn = 0; // Used to keep track of whether diagnostic PCB is plugged in or not
 int MaxSMSmsgSize = 30;  // number of slots available on SIM to store text messages
 int FONAisON = 0; //Keeps track of whether the FONA has been turned on
-int threeG = 1;     // 2G = 0, 3G = 1;
-int fourG = 0;      // 4G = 1;
+int threeG = 0;     // 2G = 0, 3G = 1;
+int fourG = 1;      // 4G = 1;
 
 //char phoneNumber[] = "+2330548345382"; // Number for the Black Phone
 //char phoneNumber[] = "+17177784498"; // Number for Upside Wireless
@@ -86,7 +86,7 @@ int hour_msg_sent = 0;  //set to 1 when the hourly message has been sent
  ********************************************************************/
 int turnOffSIM() {
     int SIM_OFF = 0;  // Assume the SIM is not off
-    if ((!threeG && !fourG && statusPin) || (threeG && !statusPin) || (fourG && !statusPin)) { //Checks see if the Fona is ON 1=Yes so turn it off
+    if ((!threeG && !fourG && statusPin) || (threeG && !statusPin) || (fourG && statusPin)) { //Checks see if the Fona is ON 1=Yes so turn it off
         pwrKeyPin = 0;//PORTBbits.RB6 = 0; //set low pin 15 for 2000ms to turn OFF Fona
         
         if(threeG){
@@ -126,7 +126,7 @@ int turnOffSIM() {
  ********************************************************************/
 int turnOnSIM() {
     int SIM_ON = 0;  // Assume the SIM is not on
-    if ((!threeG && !fourG && statusPin) || (threeG && !statusPin) || (fourG && !statusPin)) { //Checks see if the Fona is already on
+    if ((!threeG && !fourG && statusPin) || (threeG && !statusPin) || (fourG && statusPin)) { //Checks see if the Fona is already on
         SIM_ON = 1;
     }
     else{
@@ -1873,4 +1873,168 @@ void CheckIncommingTextMessages(void){
         }
     }
         
+}
+
+/*********************************************************************
+ * Function: void Initialize4G(void)
+ * Input: none
+ * Output: none
+ * Overview:  The ublok chip needs to be configured.  Two of its output pins
+ *            are general purpose and commands assign these to NETSTAT and
+ *            PWRSTAT.
+ * TestDate: 5/7/23 Works for breakout board no on In house design
+ ********************************************************************/
+void Initialize4G(void){
+    
+    //if(fourG){
+        //sendMessage("AT+UGPIOC=24,10\r\n"); //set pin 24 to Power Status
+        //sendMessage("AT+UGPIOC=16,2\r\n"); //set pin 16 to Network Status
+        //ReceiveTextMsg[0] = 0;
+
+        //IFS0bits.U1RXIF = 0; // Always reset the interrupt flag
+        //U1STAbits.OERR = 0;  //clear the overrun error bit to allow new messages to be put in the RXREG FIFO
+                         // This clears the RXREG FIFO
+        //IEC0bits.U1RXIE = 1;  // enable Rx interrupts
+
+        //NumCharInTextMsg = 0; // Point to the start of the Text Message String
+        //ReceiveTextMsgFlag = 0; //clear for the next message
+
+        //sendMessage("AT+COPS=?\r\n"); //looks for network operators
+
+        //while (ReceiveTextMsgFlag == 0){}
+
+       
+        //IFS0bits.U1RXIF = 0; // Always reset the interrupt flag
+
+        //U1STAbits.OERR = 0;  //clear the overrun error bit to allow new messages to be put in the RXREG FIFO
+
+                         // This clears the RXREG FIFO
+
+        //NumCharInTextMsg = 0; // Point to the start of the Text Message String
+
+        //ReceiveTextMsgFlag = 0;
+
+        //ReceiveTextMsg[0] = 0;
+
+       
+
+        //while (ReceiveTextMsgFlag == 0){ }
+
+       
+
+        //TMR1 = 0;
+
+        //while (TMR1 < longest_wait) { }
+
+       
+
+       //char *MsgPtr;
+
+        //char opstrn[10];
+
+        //opstrn[0] = 0;
+
+        //int quote; //this counts the number of quotes in the string to help
+
+        //quote = 0; //find the 5-6 digit operator number
+
+        //int msgLength = 0;
+
+        //msgLength=strlen(ReceiveTextMsg);
+
+     
+
+        
+
+        //MsgPtr = ReceiveTextMsg;
+
+        //go to the start of the string after +COPS:
+
+        //MsgPtr = MsgPtr + 8;
+
+        //go until it hits a letter
+
+        //sendDebugMessage("receivetextmsg = ", *ReceiveTextMsg);  //Debug
+
+        //while ((*MsgPtr < 0x40) && (MsgPtr < ReceiveTextMsg + msgLength-1)){
+
+            //MsgPtr++;
+
+            //sendDebugMessage("msgptr1 = ", *MsgPtr);  //Debug
+
+        //}
+
+ 
+
+        //while (quote < 4) { //go until it sees 4 quotes
+
+            //MsgPtr++;
+
+            //if (*MsgPtr == 0x22) {quote++;} //pointer or not?
+
+            //sendDebugMessage("msgptr2 = ", *MsgPtr);  //Debug
+
+        //
+
+ 
+
+        //MsgPtr++;
+
+        //go until msgptr is not a number anymore
+
+        //while (((*MsgPtr < 0x3a) && (*MsgPtr > 0x2f)) && (MsgPtr < ReceiveTextMsg + msgLength-1)) {
+
+            //strncat(opstrn, MsgPtr,1); // OR opstrn[0] = MsgPtr ?? and increment the index somehow?
+
+            //MsgPtr++;
+
+        //}
+
+       
+
+        //Change this to the Corresponding MCC/MNC Code for Country/Provider
+
+    if(fourG){
+     turnOnSIM(); // PWRSTAT is not yet configured.  But pin should be low
+
+        char opstrn[10];
+        opstrn[0] = 0;
+        //strncat(opstrn, "311490",1);
+        concat(opstrn,"310260");
+
+        char OperatorString[40];
+        OperatorString[0] = 0; //clear string
+        concat(OperatorString, "AT+COPS=1,2,\"");
+        concat(OperatorString, opstrn); //need to do anything about the extra
+        concat(OperatorString, "\"\r\n");           //unused chars in this array?
+
+        delayMs(500);
+        sendMessage("AT+UMNOPROF?\r\n"); //Read Mobile Network Operator profile
+        delayMs(500);
+
+        sendMessage("AT+CFUN=0\r\n");       //set Module functionality to minimal
+        delayMs(500);
+
+        sendMessage("AT+UMNOPROF=0\r\n");   //Set Mobile Network Operator to default (This should work the best)
+        delayMs(500);
+
+        sendMessage("AT+CFUN=15\r\n");      //MT silent reset (with detach from network and saving of NVM parameters), without reset of the SIM card
+        delayMs(2000);
+
+        sendMessage("AT\r\n");              //not sure what this does
+        delayMs(500);
+
+        sendMessage("ATE0\r\n");            //or this one either
+        delayMs(500);
+
+        sendMessage(OperatorString);        //Set the operator
+        delayMs(500);
+
+        sendMessage("AT+UGPIOC=24,10\r\n"); //set pin 24 to Power Status
+        delayMs(500);
+
+        sendMessage("AT+UGPIOC=16,2\r\n"); //set pin 16 to Network Status
+        delayMs(500);
+    }
+    turnOffSIM();
 }

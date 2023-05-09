@@ -9,7 +9,7 @@
 #include <p24FV32KA302.h>
 
 
-float codeRevisionNumber = 6.1;  //Current as of 4/23/2023
+float codeRevisionNumber = 6.2;  //Current as of 5/9/2023
 
 int __attribute__((space(eedata))) eeData; // Global variable located in EEPROM
 
@@ -211,14 +211,14 @@ float date = 0; // date variable
 /////////////////////////////////////////////////////////////////////
 
 /*********************************************************************
- * Function: initialization()
- * Input: None
- * Output: None
- * Overview: configures chip to work in our system (when power is turned on, these are set once)
- * Note: Pic Dependent
- * TestDate: 06-03-14
- ********************************************************************/
-void initialization(void) {    
+* Function: initialization()
+* Input: None
+* Output: None
+* Overview: configures chip to work in our system (when power is turned on, these are set once)
+* Note: Pic Dependent
+* TestDate: 06-03-14
+********************************************************************/
+void initialization(void) {   
     char localSec = 0;
     char localMin = 20;
     char localHr = 17;
@@ -226,50 +226,46 @@ void initialization(void) {
     char localDate = 07;
     char localMonth = 10;
     char localYear = 21;
-    
     initialIOpinConfiguration(); // Set input/output, digital/analog, default state of pins
-    
     pumping_Led = 1;   //Turn on pumping led - red So we know we are in the start of the Initialization Function
-
+    
     // Timer 1 control (for WPS and FONA interactions and delayMs function)
     // also used to prevent interactions with the RTCC from hanging
     T1CONbits.TCS = 0; // Source is Internal Clock if FNOSC = FRC, Fosc/2 = 4Mhz
-    T1CONbits.TCKPS = 0b11; // Prescalar to 1:256 
+    T1CONbits.TCKPS = 0b11; // Prescalar to 1:256
     // if FNOSC = FRC, Timer Clock = 15.625khz
     T1CONbits.TON = 1; // Enable the timer (timer 1 is used for the water sensor and checking for network)
-
     // Timer 2 is used by the VTCC clock and is initialized in the initializeVTCC routine
-    
+
     // Timer 3 is a 16 bit counter currently used by the WPS functions
     T3CONbits.TCS = 0; //Source is Internal Clock Fosc/2  if #pragma config FNOSC = FRC, Fosc/2 = 4Mhz
-    T2CONbits.T32 = 0; // Using 16-bit timer3  This is also done in the VTCC initilization but 
-                       // I'm putting it here to be clear that timer 2/3 is used 
+    T2CONbits.T32 = 0; // Using 16-bit timer3  This is also done in the VTCC initilization but
+                       // I'm putting it here to be clear that timer 2/3 is used
                        // as two 16-bit timers rather than a single 32-bit
-    T3CONbits.TCKPS = 0b01; // Prescalar to 1:8, this means that Timer 3 will be 
+    T3CONbits.TCKPS = 0b01; // Prescalar to 1:8, this means that Timer 3 will be
                             // clocked at 500kHz
     T3CONbits.TON = 1; //Turn the counter on.  We are not using interrupts and we
                        //will clear it as needed
-    
+
     // Timer 4 control (for regulating accelerometer sampling rate)
     T4CONbits.TCS = 0; //Source is Internal Clock Fosc/2  if #pragma config FNOSC = FRC, Fosc/2 = 4Mhz
     T4CONbits.T32 = 0; // Using 16-bit timer4
-    T4CONbits.TCKPS = 0b11; // Prescalar to 1:256 (Need prescalar of at least 1:8 for this) 
+    T4CONbits.TCKPS = 0b11; // Prescalar to 1:256 (Need prescalar of at least 1:8 for this)
     // if FNOSC = FRC, Timer Clock = 15.625khz
-    
-    // Timer 5 is currently unused
-    
 
+    // Timer 5 is currently unused
+   
     // UART config
-    //    U1MODE = 0x8000;  
+    //    U1MODE = 0x8000; 
     U1MODEbits.BRGH = 0; // Use the standard BRG speed
     U1BRG = 25; // set baud to 9600, assumes FCY=4Mhz (FNOSC = FRC)
     U1MODEbits.PDSEL = 0; // 8 bit data, no parity
     U1MODEbits.STSEL = 0; // 1 stop bit
 
-    // The Tx and Rx PINS are enabled as the default 
-    U1STA = 0; // clear Status and Control Register 
+    // The Tx and Rx PINS are enabled as the default
+    U1STA = 0; // clear Status and Control Register
     U1STAbits.UTXEN = 1; // enable transmit
-    // no need to enable receive.  The default is that a 
+    // no need to enable receive.  The default is that a
     // receive interrupt will be generated when any character
     // is received and transferred to the receive buffer
     U1STAbits.URXISEL = 0; // generate an interrupt each time a character is received
@@ -278,8 +274,10 @@ void initialization(void) {
     ReceiveTextMsg[0] = 0; // Start with an empty string
     ReceiveTextMsgFlag = 0;
 
-    turnOffSIM(); //Make sure the FONA board is powered down
-
+    // this is new 2-17-2023 Delay for 1 second to let the UART stabilize
+    TMR1 = 0;
+    while(TMR1<15625){};
+  
     initAdc();
 
     //Initialize the battery level array with the current battery voltage
@@ -288,19 +286,20 @@ void initialization(void) {
     BatteryLevelArray[2] = BatteryLevelArray[0]; //Used to track change in battery voltage
     
     water_Led = 1;  // Turn on the Water led - green  Moving through the Initialization Functions
+
     //Initialize the handle position array
     // Fill array with the current unfiltered position
     signed int initxValue = readAdc(xAxisChannel) - signedNumAdjustADC;
-    signed int inityValue = readAdc(yAxisChannel) - signedNumAdjustADC;        
+    signed int inityValue = readAdc(yAxisChannel) - signedNumAdjustADC;       
     float initAngle = atan2(inityValue, initxValue) * radToDegConst; //returns angle in degrees
     int i;
     for (i = 0; i < 51; i++) {
         angleArray[i] = initAngle;
     }
 
-    // We may be waking up because the battery was dead or the WatchDog expired.  
-    // If that is the case, Restart Status (in EEPROM), will be zero and we want 
-    // to continue using values that had been saved in EEPROM such as 
+    // We may be waking up because the battery was dead or the WatchDog expired. 
+    // If that is the case, Restart Status (in EEPROM), will be zero and we want
+    // to continue using values that had been saved in EEPROM such as
     // the leakRateLong, longestPrime and the code revision and various phone numbers.
     EEProm_Read_Float(RestartStatus, &EEFloatData);
     print_debug_messages = 2;
@@ -313,8 +312,8 @@ void initialization(void) {
         EEProm_Read_Float(EEpromDiagStatus,&diagnostic); //Get the current Diagnostic Status from EEPROM
         initializeVTCC(0, BcdToDec(getMinuteI2C()), BcdToDec(getHourI2C()), BcdToDec(getDateI2C()), BcdToDec(getMonthI2C()));
         // Reset the phone numbers from EEPROM
-    } else {  
-        // If this is the first time we get here after programming, we want to 
+    } else { 
+        // If this is the first time we get here after programming, we want to
         // clear out EEProm and save the hard coded versions of things
         // like various phone numbers to EEProm.  That way we can change these
         // after the fact from text messages if we need to by writing new values
@@ -327,7 +326,7 @@ void initialization(void) {
 
         initializeVTCC(localSec, localMin, localHr, localDate, localMonth);
         year = BcdToDec(getYearI2C()); //just here to return value if RTCC failed to communicate
-                                       //if there is a problem reading the RTCC, 
+                                       //if there is a problem reading the RTCC,
                                        //extRtccTalked = 0 if not it is 1.  This
                                        //is used when deciding between the RTCC
                                        //and the VTCC
@@ -350,120 +349,13 @@ void initialization(void) {
     hour = localHr; // If both are working RTCC and VTCC have the same hour
     active_volume_bin = hour / 2; //Which volume bin are we starting with
     prevHour = hour; //We use previous hour to see if it has been an hour since we did some things
-    
-    turnOnSIM();
-    
-    //if(fourG){
-        //sendMessage("AT+UGPIOC=24,10\r\n"); //set pin 24 to Power Status
-        //sendMessage("AT+UGPIOC=16,2\r\n"); //set pin 16 to Network Status
-        //ReceiveTextMsg[0] = 0;
-        
-        //IFS0bits.U1RXIF = 0; // Always reset the interrupt flag
-        //U1STAbits.OERR = 0;  //clear the overrun error bit to allow new messages to be put in the RXREG FIFO
-                         // This clears the RXREG FIFO
-        //IEC0bits.U1RXIE = 1;  // enable Rx interrupts
-        
-        //NumCharInTextMsg = 0; // Point to the start of the Text Message String
-        //ReceiveTextMsgFlag = 0; //clear for the next message
-        
-        //sendMessage("AT+COPS=?\r\n"); //looks for network operators
-        
-        //while (ReceiveTextMsgFlag == 0){}
-        
-        
-        //IFS0bits.U1RXIF = 0; // Always reset the interrupt flag
-        //U1STAbits.OERR = 0;  //clear the overrun error bit to allow new messages to be put in the RXREG FIFO
-                         // This clears the RXREG FIFO
-        //NumCharInTextMsg = 0; // Point to the start of the Text Message String
-        //ReceiveTextMsgFlag = 0;
-        //ReceiveTextMsg[0] = 0;
-        
-        //while (ReceiveTextMsgFlag == 0){ }
-        
-        //TMR1 = 0;
-        //while (TMR1 < longest_wait) { }
-        
-       //char *MsgPtr;
-        //char opstrn[10];
-        //opstrn[0] = 0;
-        //int quote; //this counts the number of quotes in the string to help
-        //quote = 0; //find the 5-6 digit operator number
-        //int msgLength = 0;
-        //msgLength=strlen(ReceiveTextMsg);
-      
-        
-        //MsgPtr = ReceiveTextMsg;
-        //go to the start of the string after +COPS:
-        //MsgPtr = MsgPtr + 8;
-        //go until it hits a letter
-        //sendDebugMessage("receivetextmsg = ", *ReceiveTextMsg);  //Debug
-        //while ((*MsgPtr < 0x40) && (MsgPtr < ReceiveTextMsg + msgLength-1)){
-            //MsgPtr++;
-            //sendDebugMessage("msgptr1 = ", *MsgPtr);  //Debug
-        //}
 
-        //while (quote < 4) { //go until it sees 4 quotes
-            //MsgPtr++;
-            //if (*MsgPtr == 0x22) {quote++;} //pointer or not?
-            //sendDebugMessage("msgptr2 = ", *MsgPtr);  //Debug
-        //
-
-        //MsgPtr++;
-        //go until msgptr is not a number anymore
-        //while (((*MsgPtr < 0x3a) && (*MsgPtr > 0x2f)) && (MsgPtr < ReceiveTextMsg + msgLength-1)) {
-            //strncat(opstrn, MsgPtr,1); // OR opstrn[0] = MsgPtr ?? and increment the index somehow?
-            //MsgPtr++;
-        //}
-        
-        //Change this to the Corresponding MCC/MNC Code for Country/Provider
     if(fourG){
-        char opstrn[10];
-        opstrn[0] = 0;
-        //strncat(opstrn, "311490",1);
-        concat(opstrn,"310260");
-        
-        char OperatorString[40];
-        OperatorString[0] = 0; //clear string
-        concat(OperatorString, "AT+COPS=1,2,\"");
-        concat(OperatorString, opstrn); //need to do anything about the extra
-        concat(OperatorString, "\"\r\n");           //unused chars in this array?
-        
-        delayMs(500);
-        sendMessage("AT+UMNOPROF?\r\n"); //set pin 24 to Power Status
-        delayMs(500);
-        
-        sendMessage("AT+CFUN=0\r\n");
-        delayMs(500);
-        
-        sendMessage("AT+UMNOPROF=0\r\n");
-        delayMs(500);
-        
-        sendMessage("AT+CFUN=15\r\n");
-        delayMs(2000);
-        
-        sendMessage("AT\r\n");
-        delayMs(500);
-        
-        sendMessage("ATE0\r\n");
-        delayMs(500);
-        
-        sendMessage(OperatorString);
-        delayMs(500);
-        
-        sendMessage("AT+UGPIOC=24,10\r\n"); //set pin 24 to Power Status
-        delayMs(500);
-        
-        sendMessage("AT+UGPIOC=16,2\r\n"); //set pin 16 to Network Status 
-        delayMs(500);
+        Initialize4G(); 
     }
-    // just so we know the board is working.  This will flash the cell phone
-    // board LED for 2 seconds
-    delayMs(1000);
     pumping_Led = 0;   //Turn off pumping led - red
     delayMs(1000);
     water_Led = 0;  // Turn off the Water led - green 
-    delayMs(1000);
-    turnOffSIM();
 }
 /////////////////////////////////////////////////////////////////////
 ////                                                             ////
