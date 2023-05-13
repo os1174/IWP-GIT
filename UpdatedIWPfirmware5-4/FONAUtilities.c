@@ -105,7 +105,7 @@ int turnOffSIM() {
     //    Still wait 100ms before checking.
     delayMs(100);
     
-    if ((!threeG && !fourG && !statusPin) || (threeG && statusPin) || (fourG && statusPin)) { //Checks see if the Fona is OFF 0 = OFF so don't do anything
+    if ((!threeG && !fourG && !statusPin) || (threeG && statusPin) || (fourG && !statusPin)) { //Checks see if the Fona is OFF 0 = OFF so don't do anything
         SIM_OFF = 1;
     }
     FONAisON = !SIM_OFF; // Makes FONAisON = 0 when FONA is OFF
@@ -145,7 +145,7 @@ int turnOnSIM() {
         // Experimental tests showed that it takes 0.8 - 1.3sec for the FONA to turn on
         delayMs(2000);
         
-        if ((!threeG && !fourG && statusPin) || (threeG && !statusPin) || (fourG && !statusPin)) { // See if the FONA turned on
+        if ((!threeG && !fourG && statusPin) || (threeG && !statusPin) || (fourG && statusPin)) { // See if the FONA turned on
             SIM_ON = 1;
         }
     }
@@ -378,7 +378,7 @@ void sendDebugMessage(char message[50], float value){
     if(print_debug_messages >= 1){
         int msg_length = stringLength(message);
         int SIMwasON = 0;
-        if ((!threeG && !fourG && statusPin) || (threeG && !statusPin) || (fourG && !statusPin)) { // if the Fona is on, turn it off
+        if ((!threeG && !fourG && statusPin) || (threeG && !statusPin) || (fourG && statusPin)) { // if the Fona is on, turn it off
                          // the FONA gets messed up if the serial line
                          // is sending non-AT commands when it is on
             turnOffSIM();

@@ -9,7 +9,7 @@
 #include <p24FV32KA302.h>
 
 
-float codeRevisionNumber = 6.2;  //Current as of 5/9/2023
+float codeRevisionNumber = 6.21;  //Current as of 5/12/2023
 
 int __attribute__((space(eedata))) eeData; // Global variable located in EEPROM
 
@@ -277,6 +277,10 @@ void initialization(void) {
     // this is new 2-17-2023 Delay for 1 second to let the UART stabilize
     TMR1 = 0;
     while(TMR1<15625){};
+    sendMessage("Start Serial \r\n"); //Read Mobile Network Operator profile
+        delayMs(500);
+    sendMessage("Second Priming Message\r\n"); //Read Mobile Network Operator profile
+        delayMs(500);
   
     initAdc();
 

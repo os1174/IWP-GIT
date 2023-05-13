@@ -640,7 +640,7 @@ void HourlyActivities(void){
 void SaveBatteryPower(void){
     while(BatteryLevelArray[2]<BatteryLevelArray[0]){
         // The WDT settings will let the PIC sleep for about 131 seconds.
-        if((!threeG && !fourG && statusPin) || (threeG && !statusPin) || (fourG && !statusPin)) { // if the Fona is on, shut it off
+        if((!threeG && !fourG && statusPin) || (threeG && !statusPin) || (fourG && statusPin)) { // if the Fona is on, shut it off
             turnOffSIM();             
         }
         if (sleepHrStatus != 1){ // Record the fact that we went to sleep for diagnostic reporting purposes
