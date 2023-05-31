@@ -98,7 +98,7 @@ void main(void)
         
     //   Note: selecting 1 or 2 will change some system timing since it takes 
     //         time to form and send a serial message
-    print_debug_messages = 1;       //DEBUG CHANGED TO A 1 SO THAT WE RECIEVE MESSAGES
+    print_debug_messages = 1;       // As of now, being set to 1 does not change accuracy of Prime, Volume or Leak
     int temp_debug_flag = print_debug_messages;
     
     EEProm_Read_Float(EEpromCodeRevisionNumber,&codeRevisionNumber); //Get the current code revision number from EEPROM
@@ -118,7 +118,7 @@ void main(void)
         if (nextTechAtPumpCheck >=60){      // we start looking for text messages
             nextTechAtPumpCheck = nextTechAtPumpCheck - 60; // if Tech at Pump, this is 
         }                             // for manufacturing test 
-
+    
     while (1)
 	{
         //MAIN LOOP; repeats indefinitely
@@ -146,7 +146,7 @@ void main(void)
                 VerifyProperTimeSource();   
                 TimeSinceLastHourCheck = 0; //this gets updated in VTCC interrupt routine
             }  
-            // Do hourly tasks
+                        
             if(hour != prevHour){
                HourlyActivities();
             }
@@ -568,6 +568,19 @@ int TechAtPumpActivities(int nextTextMsgCheck){
     }
     
     if((secondVTCC >= nextTextMsgCheck)&&(secondVTCC < nextTextMsgCheck+2)){// 20 seconds have gone by since we last checked for text messages
+        //ZAMBIA
+        // See if we have a network connection
+        if(CheckNetworkConnection()){
+            pumping_Led = 1;
+            delayMs(500);
+            pumping_Led = 0;
+            delayMs(500);
+            pumping_Led = 1;
+            delayMs(500);
+            pumping_Led = 0;
+        }else {
+            pumping_Led = 0;
+        }   
         CheckIncommingTextMessages(); //See if there are any text messages and take
                                   //any called for action
                                   // the SIM is powered ON at this point 

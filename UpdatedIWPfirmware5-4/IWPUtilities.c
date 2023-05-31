@@ -9,7 +9,7 @@
 #include <p24FV32KA302.h>
 
 
-float codeRevisionNumber = 6.21;  //Current as of 5/12/2023
+float codeRevisionNumber = 6.22;  //Current as of 5/31/2023 - Version installed in Zambia 2023
 
 int __attribute__((space(eedata))) eeData; // Global variable located in EEPROM
 
@@ -220,12 +220,12 @@ float date = 0; // date variable
 ********************************************************************/
 void initialization(void) {   
     char localSec = 0;
-    char localMin = 20;
-    char localHr = 17;
-    char localWkday = 5;
-    char localDate = 07;
-    char localMonth = 10;
-    char localYear = 21;
+    char localMin = 31;
+    char localHr = 13;
+    char localWkday = 4;
+    char localDate = 18;
+    char localMonth = 05;
+    char localYear = 23;
     initialIOpinConfiguration(); // Set input/output, digital/analog, default state of pins
     pumping_Led = 1;   //Turn on pumping led - red So we know we are in the start of the Initialization Function
     
@@ -277,11 +277,9 @@ void initialization(void) {
     // this is new 2-17-2023 Delay for 1 second to let the UART stabilize
     TMR1 = 0;
     while(TMR1<15625){};
-    sendMessage("Start Serial \r\n"); //Read Mobile Network Operator profile
-        delayMs(500);
-    sendMessage("Second Priming Message\r\n"); //Read Mobile Network Operator profile
-        delayMs(500);
-  
+      
+    turnOffSIM();  // Make sure we begin with the cell board off
+        
     initAdc();
 
     //Initialize the battery level array with the current battery voltage
@@ -356,6 +354,13 @@ void initialization(void) {
 
     if(fourG){
         Initialize4G(); 
+    }
+    else{
+        
+        turnOnSIM();
+        delayMs(5000);
+        turnOffSIM();
+        
     }
     pumping_Led = 0;   //Turn off pumping led - red
     delayMs(1000);

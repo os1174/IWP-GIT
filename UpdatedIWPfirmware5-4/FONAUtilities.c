@@ -27,20 +27,16 @@
 // ****************************************************************************
 char origDebugphoneNumber[] = "+17177784498"; // Number for Upside
 char DebugphoneNumber[15]; //Defined during initialization 
-//char DebugphoneNumber[] = "+17177784498"; // Upside 
-//char origDebugphoneNumber[]="+17176837704"; //Number for Sue Fish Cell
-//char DebugphoneNumber[]="+254787620369"; //Number for Paul Zwart cell phone; this number is changed and default is the mainphonenumber
-//char MainphoneNumber[]="+17177784498"; // Upside Wireless
 char origMainphoneNumber[]="+17177784498"; // Upside
-char MainphoneNumber[15]; //Defined during initialization
+// Zambia char origMainphoneNumber[]="+17176837803"; // Randy
+char MainphoneNumber[15]; //This is set to origMainphoneNumber during initialization but can be changed via text message
 //char origMainphoneNumber[]="+17176837704"; //Sue
-char origCountryCode[] = "+254"; // This is Kenya 
+char origCountryCode[] = "+260"; // This is Zambia 
+//char origCountryCode[] = "+254"; // This is Kenya 
 char CountryCode[6];
 char SendingPhoneNumber[]="+254787620369"; //this is read from the received SMS message default to mine
-//char phoneNumber[] = "+17177784498"; // Number Used to send text message report (daily or hourly)
-//char phoneNumber []="+17176837803"; // Randy
-char* phoneNumber = MainphoneNumber; // Randy
-char CountryCode[] = "+254"; // This is Kenya 
+char* phoneNumber = MainphoneNumber; // Number Used to send text message report (daily or hourly).  Initialize to Main
+char CountryCode[] = "+260"; // This is Zambia.  Can be changed with a text message
 int LeaveOnSIM = 0;  // this is set to 1 when an external message says to not shut off the SIM
 char FONAmsgStatus[11]; //Message REC/STO, UNREAD/READ, UNSENT/SENT
 char SignalStrength[3]; //hold the values of the signal strength
@@ -54,8 +50,8 @@ int op_search_t = 180000; //amount of time it takes for +COPS to search for oper
 int diagPCBpluggedIn = 0; // Used to keep track of whether diagnostic PCB is plugged in or not
 int MaxSMSmsgSize = 30;  // number of slots available on SIM to store text messages
 int FONAisON = 0; //Keeps track of whether the FONA has been turned on
-int threeG = 0;     // 2G = 0, 3G = 1;
-int fourG = 1;      // 4G = 1;
+int threeG = 1;     // 2G = 0, 3G = 1;
+int fourG = 0;      // 4G = 1;
 
 //char phoneNumber[] = "+2330548345382"; // Number for the Black Phone
 //char phoneNumber[] = "+17177784498"; // Number for Upside Wireless
@@ -1090,6 +1086,8 @@ void OneTimeStatusReport(){
  * Inputs: None
  * Output: 1 if the command to go to Text mode received a response of OK
  *         0 if there was no response or not OK
+ *    May 17, 2023:  The 3G board does not reply to this command so 
+ *                   we are setting success = 1 always.
  * Overview: Call this before sending any other AT commands to make sure 
  *           the FONA is in text mode.  This waits for the echo
  *           of the command and an OK, or for a timeout waiting for a reply
@@ -1118,7 +1116,11 @@ int SetFONAtoTextMode(void){
             success = 1;
         }
         MsgPtr++;
-    }    
+    }
+//    May 17, 2023:  The 3G board does not reply to this command so 
+//                   we are setting success = 1 always.
+    success = 1;  
+     
     return success;
 
 }
@@ -1580,7 +1582,8 @@ void CreateAndSaveDailyReport(void){
  * Function: int SendSavedDailyReports2(void)
  * Input: none - Assumes the FONA is already ON
  * Output: the number of daily reports still waiting to be sent
- * Note:  Sends saved daily reports to the MainphoneNumber.  Messages are sent
+ * Note:  Sends saved daily reports to the MainphoneNumber.  This includes
+ *        the message from the current day.  Messages are sent
  *        newest first.  As long as the network is available and messages are
  *        being sent, older saved messages not able to be sent before are sent 
  * 
@@ -1846,7 +1849,9 @@ void CheckIncommingTextMessages(void){
         // Try for up to three minutes if we are checking once each hour
         int num_tries = 0;
         if(!techNotAtPump){   // Tech is at the pump (active LOW) so only try 
-                              // once. We will be back here as soon 
+                              // once. We will be back here as soon.  In fact, if
+                              // no one is pumping we check 6 times before the 
+                              // time updates for the next 20 second wait
                               // as we go around the handle not moving loop
             num_tries = 35;   // pretend we have already tried 35 out of 36 times
         }
