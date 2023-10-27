@@ -50,8 +50,8 @@ int op_search_t = 180000; //amount of time it takes for +COPS to search for oper
 int diagPCBpluggedIn = 0; // Used to keep track of whether diagnostic PCB is plugged in or not
 int MaxSMSmsgSize = 30;  // number of slots available on SIM to store text messages
 int FONAisON = 0; //Keeps track of whether the FONA has been turned on
-int threeG = 1;     // 2G = 0, 3G = 1;
-int fourG = 0;      // 4G = 1;
+int threeG = 0;     // 2G = 0, 3G = 1;
+int fourG = 1;      // 4G = 1;
 
 //char phoneNumber[] = "+2330548345382"; // Number for the Black Phone
 //char phoneNumber[] = "+17177784498"; // Number for Upside Wireless

@@ -25,7 +25,7 @@ const float leakSensorVolume = 0.130; //0.01781283; // This is in Liters; pipe d
 const int signedNumAdjustADC = 512; // Used to divide the total range of the output of the 10 bit ADC into positive and negative range.
 const int NoWPSThreshold = 400; // The value to check the pulse width against = 1ms (high or low) = 500hz
 const int NoWaterThreshold = 100; //If the WPS pulse is less than this, there is water (freq > 2kHhz)
-const int hmsSampleThreshold = 153; // Sets HMS filter sampling rate to 102hz.
+const int hmsSampleThreshold = 312; // 312 debug 50Hz 153; // Sets HMS filter sampling rate to 102hz.
 
 const int upstrokeInterval = 10; // The number of milliseconds to delay before reading the upstroke
 const int max_pause_while_priming = 1020; //The maximum time (10sec) the handle can be
@@ -1562,7 +1562,8 @@ void initialIOpinConfiguration(void){
     // ----------
     //RA0 
     //INTRCN_SPR (for debug could be input or output)
- 
+    PORTAbits.RA0 = 0;    //Currently used to monitor loop in volume code
+    TRISAbits.TRISA0 = 0; //Make pin an output
     //RA1 
     //simVioPin - Set here and not changed in the code
     PORTAbits.RA1 = 1;    //Tells FONA what logic level to use for UART
