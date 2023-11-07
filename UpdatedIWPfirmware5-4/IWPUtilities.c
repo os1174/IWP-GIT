@@ -695,8 +695,8 @@ float getHandleAngle() {
     int i;
     float angleSum = 0;
        
-    signed int xValue = readAdc(xAxisChannel) - signedNumAdjustADC;
-    signed int yValue = readAdc(yAxisChannel) - signedNumAdjustADC;        
+    signed int xValue = readAdc(xAxisChannel); // - signedNumAdjustADC;
+    signed int yValue = readAdc(yAxisChannel); // - signedNumAdjustADC;        
 
     float angle = atan2(yValue, xValue) * radToDegConst; //returns angle in degrees 06-20-2014
     for (i = 50; i > 0; i--) {
