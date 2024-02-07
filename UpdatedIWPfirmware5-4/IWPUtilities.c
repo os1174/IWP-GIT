@@ -25,17 +25,18 @@ const float leakSensorVolume = 0.130; //0.01781283; // This is in Liters; pipe d
 const int signedNumAdjustADC = 512; // Used to divide the total range of the output of the 10 bit ADC into positive and negative range.
 const int NoWPSThreshold = 400; // The value to check the pulse width against = 1ms (high or low) = 500hz
 const int NoWaterThreshold = 100; //If the WPS pulse is less than this, there is water (freq > 2kHhz)
-const int hmsSampleThreshold = 312; // 312 debug 50Hz 153; // Sets HMS filter sampling rate to 102hz.
+const int hmsSampleThreshold = 153;//1563 for 10Hz; // 1560 is 10Hz 312 debug 50Hz 153; // Sets HMS filter sampling rate to 102hz.
 
 const int upstrokeInterval = 10; // The number of milliseconds to delay before reading the upstroke
 const int max_pause_while_priming = 1020; //The maximum time (10sec) the handle can be
                                           //motionless before we declare that the 
                                           //user has given up trying to prime
                                           //Assumes the priming loop takes 9.8ms, (102hz sampling)
-const int max_pause_while_pumping = 102;  //The maximum time (1sec) the handle can be
+const int max_pause_while_pumping = 102;  // max pause for 10Hz 10; // was 102 when sampling at 102Hz;  //The maximum time (1sec) the handle can be
                                           //motionless before we declare that the 
                                           //user has given up trying to pump
                                           //Assumes the pumping loop takes 9.8ms, (102hz sampling)
+                                          // For 1 sec, this should be 15625/hmsSampleThreshold
 long leakRateTimeOut = 1200000; // Maximum number of milliseconds to wait for water to drain when calculating leak rate (20 minutes)
 const int decimalAccuracy = 3; // Number of decimal places to use when converting floats to strings
 const float angleThresholdSmall = 0.1; //number close to zero to determine if handle is moving w/o interpreting accelerometer noise as movement.
@@ -695,8 +696,9 @@ float getHandleAngle() {
     int i;
     float angleSum = 0;
        
-    signed int xValue = readAdc(xAxisChannel); // - signedNumAdjustADC;
-    signed int yValue = readAdc(yAxisChannel); // - signedNumAdjustADC;        
+    signed int xValue = readAdc(xAxisChannel)- signedNumAdjustADC; //this a signed number - signedNumAdjustADC;
+    signed int yValue = readAdc(yAxisChannel)- signedNumAdjustADC; //this a signed number - signedNumAdjustADC;   
+    
 
     float angle = atan2(yValue, xValue) * radToDegConst; //returns angle in degrees 06-20-2014
     for (i = 50; i > 0; i--) {
@@ -708,6 +710,7 @@ float getHandleAngle() {
     angleSum += angle * filter[0];
     return angleSum;
 }
+
 
 /*********************************************************************
  * Function: batteryLevel()
@@ -1508,20 +1511,18 @@ float CalculateVolume(float pumpingMovement,float pumpSeconds){
     // calculate volume based on quadratic trend line
     //pumpLiters = ((-b - sqrt((b*b) - (4 * (a) * (c - (timePerRad))))) / (2*a)) * pumpingMovement;
     //sendDebugMessage("Single Equation Volume Pumped = ", pumpLiters);  //Debug
-    if (timePerRad > 2.25) {        //If determined to be in slow pumping cluster
+    pumpLiters = 0;  // Default if for some reason the ifs below fail
+    if (timePerRad >= 2.25) {        //If determined to be in slow pumping cluster
         pumpLiters = (.0227*(timePerRad)+.2571)*pumpingMovement;
         sendDebugMessage("We are in the slow pumping cluster", -0.1);
     }
-    if (timePerRad < 2.25 && timePerRad > 1.75) {   //If determined to be in medium pumping cluster
+    if (timePerRad < 2.25 && timePerRad >= 1.75) {   //If determined to be in medium pumping cluster
         pumpLiters = (.0128*(timePerRad)+.3208)*pumpingMovement;
         sendDebugMessage("We are in the medium pumping cluster", -0.1);
     }
     if (timePerRad < 1.75) {            //If determined to be in fast pumping cluster
         pumpLiters = (.0106*(timePerRad)+.4138)*pumpingMovement;
         sendDebugMessage("We are in the fast pumping cluster", -0.1);
-    }
-    if(pumpLiters < 0){// saw this during debug of code need to find out why this can happen
-        pumpLiters = 0;
     }
     return pumpLiters;
 }

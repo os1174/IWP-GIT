@@ -332,6 +332,7 @@ float Volume(void){
             water_Led = 0;  // Turn OFF the Water LED
         }
         else{
+            // DEBUG angleCurrent = getHandleAngleDEBUG();
             angleCurrent = getHandleAngle(); //gets the filtered current angle
             angleDelta = angleCurrent - anglePrevious;  //determines the amount of handle movement from last reading
             anglePrevious = angleCurrent;               //Prepares anglePrevious for the next loop
@@ -382,10 +383,7 @@ float Volume(void){
                 }
             }
         }
-        PORTAbits.RA0 = 1;  //Pulse JP1-5 high
-        sendDebugMessage("",angleCurrent);
         while (TMR4 < hmsSampleThreshold); //fixes the sampling rate at about 102Hz
-        PORTAbits.RA0 = 0;  //Set JP1-5 back low
         TMR4 = 0; //reset the timer before reading WPS           
     }
     // Pumping has stopped
