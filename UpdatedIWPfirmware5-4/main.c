@@ -137,9 +137,13 @@ void main(void)
             pumping_Led = 0;   //Turn off pumping led - red
             if(techNotAtPump == 0){ // There is a tech at the pump so we want to 
                                 // give feedback on LEDs and check text messages
+                temp_debug_flag = print_debug_messages;
+                print_debug_messages = 0;
                 nextTechAtPumpCheck = TechAtPumpActivities(nextTechAtPumpCheck);
             }
-            else{if(FONAisON){turnOffSIM();}} //Usually only power Cellphone board on the hour
+            else{
+                print_debug_messages = temp_debug_flag;
+                if(FONAisON){turnOffSIM();}} //Usually only power Cellphone board on the hour
             ClearWatchDogTimer();     // We stay in this loop if no one is pumping so we need to clear the WDT 
                      
            // See if the external RTCC is keeping track of time or if we need to rely on 

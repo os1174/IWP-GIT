@@ -78,25 +78,34 @@ int hour_msg_sent = 0;  //set to 1 when the hourly message has been sent
  * Output: SIM_OFF  this is a 1 if the SIM turned OFF and 0 if not
  * Overview: Powers Down (turns off) the SIM900
  * Note: Pic Dependent
+ * The 4G chip will be turned off my sending the AT+CPWROFF command.
  * TestDate: 12-22-2017 RKF
  ********************************************************************/
 int turnOffSIM() {
     int SIM_OFF = 0;  // Assume the SIM is not off
     if ((!threeG && !fourG && statusPin) || (threeG && !statusPin) || (fourG && statusPin)) { //Checks see if the Fona is ON 1=Yes so turn it off
-        pwrKeyPin = 0;//PORTBbits.RB6 = 0; //set low pin 15 for 2000ms to turn OFF Fona
+        
         
         if(threeG){
+            pwrKeyPin = 0;//PORTBbits.RB6 = 0; //set low pin 15 for 2000ms to turn OFF Fona
             delayMs(3200);
+            pwrKeyPin = 1; //PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned on later (pin 15)
         }
         if(fourG){
-            delayMs(3200);
+            sendMessage("AT+CPWROFF\r\n");
+            delayMs(1000);  //testing showed that it took the CLICK board about 250ms to turn off.
+            while(statusPin){        
+                sendMessage("AT+CPWROFF\r\n");
+                delayMs(1000);  //try again
+            }
         }
         else{
+            pwrKeyPin = 0;//PORTBbits.RB6 = 0; //set low pin 15 for 2000ms to turn OFF Fona
             delayMs(2000);
+            pwrKeyPin = 1; //PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned on later (pin 15)
         }
     }
     
-    pwrKeyPin = 1; //PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned on later (pin 15)
     // Experiments show the FONA shutting off 7ms BEFORE the KEY is brought back high
     //    Still wait 100ms before checking.
     delayMs(100);
@@ -125,19 +134,28 @@ int turnOnSIM() {
     if ((!threeG && !fourG && statusPin) || (threeG && !statusPin) || (fourG && statusPin)) { //Checks see if the Fona is already on
         SIM_ON = 1;
     }
-    else{
-        pwrKeyPin = 0;//PORTBbits.RB6 = 0; //set low pin 15 for 2000ms to turn on Fona
-        
+    else{        
         if(threeG){
+            pwrKeyPin = 0;//PORTBbits.RB6 = 0; //set low pin 15 for 2000ms to turn on Fona
             delayMs(5000); //3G Board  
+            pwrKeyPin = 1;//PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned off later (pin 15)
         }
         if(fourG){
-            delayMs(3200); //4G Board
+            while(!statusPin){
+                pwrKeyPin = 1; // When using CLICK, a HIGH makes PWR_ON for the chip go low
+                pwrKeyDirection = 0; //RB6 pwrKeyPin // Make pwrKeyPin an output
+                delayMs(2000); //4G Board
+                pwrKeyPin = 0; // When using CLICK, a HIGH makes PWR_ON for the chip go low
+                delayMs(2000); //4G Board     
+            // can we do this with the CLICK board? pwrKeyDirection = 1;  //RB6 pwrKeyPin// Make pwrKeyPin an input and rely on board pullups 
+            }
         }
         else{
+            pwrKeyPin = 0;//PORTBbits.RB6 = 0; //set low pin 15 for 2000ms to turn on Fona
             delayMs(2000); //2G Board
+            pwrKeyPin = 1;//PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned off later (pin 15)
         }
-        pwrKeyPin = 1;//PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned off later (pin 15)
+        
         // Experimental tests showed that it takes 0.8 - 1.3sec for the FONA to turn on
         delayMs(2000);
         
@@ -153,11 +171,17 @@ int turnOnSIM() {
  * Input: None
  * Output: None
  * Overview: This function tests for network status and attempts to connect to the
- *           network. A connection is there if we see the proper blinking of the
+ *           network. A connection is there:
+ *           on 2G boards: 
+ *           if we see the proper blinking of the
  *           network light 4 times in a row.
- *           If the 4 good consecutive connections are not there, pause for 
+ *           3G: ??
+ *           4G: The Network signal should be HIGH
+ * 
+ *           If the connection has not been made, pause for 
  *           1 second and try again up to 7 times. Looking for network with this
- *           approach will take between 20sec and 45sec.  If no network is found, 
+ *           approach will take between 20sec and 45sec for the 2G board.  
+ *           If no network is found, 
  *           a zero is returned indicating that connection to the network failed
  * TestDate: 12/20/2017 RKF
  ********************************************************************/
@@ -1837,7 +1861,12 @@ void createDiagnosticMessage(void) {
  * TestDate: 
  ********************************************************************/
 void CheckIncommingTextMessages(void){
-    sendDebugMessage("Checking for incoming text messages ", 0);
+    // Dont print this debug message here.  Printing shuts off the 
+    // FONA and we don't want to wait to acquire network every time.  If 
+    // are not in TechAtPump we give it 10sec.  But we want to rely on the repeated
+    // call of this function in Tech at Pump to give the board time to acquire
+    // the network without having to stop each time we call for 10sec because we
+    // printed out this message sendDebugMessage("Checking for incoming text messages ", 0);
     if(!FONAisON){
         turnOnSIM();
         if(techNotAtPump){ //no tech at the pump (active LOW)
@@ -1999,9 +2028,11 @@ void Initialize4G(void){
 
         //Change this to the Corresponding MCC/MNC Code for Country/Provider
 
-    if(fourG){
-     turnOnSIM(); // PWRSTAT is not yet configured.  But pin should be low
+  
 
+
+    if(fourG){
+/* deal with this when we figure out how to configure the board without the Arduino
         char opstrn[10];
         opstrn[0] = 0;
         //strncat(opstrn, "311490",1);
@@ -2040,6 +2071,10 @@ void Initialize4G(void){
 
         sendMessage("AT+UGPIOC=16,2\r\n"); //set pin 16 to Network Status
         delayMs(500);
+  */
     }
-    turnOffSIM();
+      turnOnSIM();
+        delayMs(5000); // This allows us to see the Light turn on and off
+      turnOffSIM();
+
 }

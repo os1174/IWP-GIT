@@ -17,6 +17,7 @@
 #define batteryVoltageChannel 15 // PORTBbits.RB4 - analog pin connected to the battery voltage circuit
 #define waterPresenceSensorPin PORTBbits.RB5
 #define pwrKeyPin PORTBbits.RB6
+#define pwrKeyDirection TRISBbits.TRISB6 //RB6 pwrKeyPin
 #define yAxisChannel 12 //This is PORTBbits.RB12 - analog pin connected to y axis of accelerometer
 #define xAxisChannel 11 //This is PORTBbits.RB13 - analog pin connected to x axis of accelerometer
 #define netLightPin PORTBbits.RB14

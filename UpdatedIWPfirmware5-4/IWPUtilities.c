@@ -9,7 +9,7 @@
 #include <p24FV32KA302.h>
 
 
-float codeRevisionNumber = 6.22;  //Current as of 5/31/2023 - Version installed in Zambia 2023
+float codeRevisionNumber = 6.32;  //Current as of 4/4/2024 - Version intended for installation in Zambia 2024
 
 int __attribute__((space(eedata))) eeData; // Global variable located in EEPROM
 
@@ -260,6 +260,7 @@ void initialization(void) {
     //    U1MODE = 0x8000; 
     U1MODEbits.BRGH = 0; // Use the standard BRG speed
     U1BRG = 25; // set baud to 9600, assumes FCY=4Mhz (FNOSC = FRC)
+   // DEBUG change to 111200  U1BRG = 1; // set baud to 115200, assumes FCY=4Mhz (FNOSC = FRC)
     U1MODEbits.PDSEL = 0; // 8 bit data, no parity
     U1MODEbits.STSEL = 0; // 1 stop bit
 
@@ -354,12 +355,15 @@ void initialization(void) {
     prevHour = hour; //We use previous hour to see if it has been an hour since we did some things
 
     if(fourG){
+        // We will use Arduino code to initialize CLIK boards prior to connecting 
+        // Them to the system.
         Initialize4G(); 
+
     }
     else{
         
         turnOnSIM();
-        delayMs(5000);
+        delayMs(5000); // This allows us to see the Light turn on and off
         turnOffSIM();
         
     }
@@ -1616,7 +1620,12 @@ void initialIOpinConfiguration(void){
  
     //RB6
     PORTBbits.RB6 = 1;    //Reset the Power Key so it can be turned off later
-    TRISBbits.TRISB6 = 0; //RB6 pwrKeyPin
+    if(fourG){
+      TRISBbits.TRISB6 = 1; //RB6 pwrKeyPin  input pin 4G chip internal pullup/down
+    }else{
+       TRISBbits.TRISB6 = 0; //RB6 pwrKeyPin output pin
+    }
+    
 
     //RB7 
     //Tx pin sending UART data to Cell phone board
