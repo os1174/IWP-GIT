@@ -281,6 +281,10 @@ int WaitForPrime(float primeAngleCurrent){
             EEProm_Write_Float(EELongestPrimeCurrent,&longestPrime);                      // Save to EEProm
             sendDebugMessage("Saved New Max Prime Distance ", upStrokePrimeMeters);  //Debug
 		}
+        if(longestPrime > longestPrimeMonthly){
+            longestPrimeMonthly = longestPrime;
+            EEProm_Write_Float(EEpromMonthlyPrime,&longestPrimeMonthly);                 // Save to EEProm
+        }
         sendDebugMessage("Prime Distance ", upStrokePrimeMeters);  //Debug
     }
     angleCurrent = primeAngleCurrent;  // Starting point for the volume function
@@ -408,7 +412,11 @@ float Volume(void){
     sendDebugMessage("handle moving for (sec) ", pumpSeconds);  //Debug
     sendDebugMessage("Volume Event = ", volumeEvent);  //Debug
     sendDebugMessage("  for time slot ", hour);  //Debug
-    // Add to the volume bin
+    // Add to the total volume dispensed today and this month
+    DailyVolume = DailyVolume + volumeEvent;
+    MonthlyVolume = MonthlyVolume + volumeEvent;
+    
+    //Add to the volume bin
     // organize flow into 2 hours bins
     // The hour was read at the start of the handle movement routine      
     switch (hour / 2) {
@@ -542,6 +550,10 @@ float LeakRate(float volumeEvent){
             EEProm_Write_Float(EELeakRateLongCurrent,&leakRateLong);                   // Save to EEProm
             sendDebugMessage("Saved new longest leak rate to EEProm ", leakRateLong);
 		}
+        if(leakRateLong > leakRateLongMonthly){
+            leakRateLongMonthly = leakRateLong;
+            EEProm_Write_Float(EEpromMonthlyLeak,&leakRateLongMonthly);                 // Save to EEProm
+        }
         //}     Bracket needed for possible else statement for the extreme cases
     }
     return leakRateCurrent;
@@ -619,7 +631,7 @@ int TechAtPumpActivities(int nextTextMsgCheck){
  * TestDate: NOT TESTED
  ********************************************************************/ 
 void HourlyActivities(void){
-    if(hour/2 != active_volume_bin){
+        if(hour/2 != active_volume_bin){
         SaveVolumeToEEProm();
     }
     //Update the Battery level Array used in sleep decision
@@ -631,9 +643,17 @@ void HourlyActivities(void){
     CheckIncommingTextMessages();  // Reads and responds to any messages sent to the system
                                    // The SIM is ON at this point              
     if(hour == 12){  // If it is noon, save a daily report
-        CreateAndSaveDailyReport();
+        // update monthly volume in EEProm
+        EEProm_Write_Float(EEpromMonthlyVolume,&MonthlyVolume);      // Save to EEProm
+        CreateAndSaveDailyReport(); 
+        if(monthVTCC != prevMonth){
+            // Send Monthly messages
+            SendMonthlyReports(prevMonth);
+            prevMonth = monthVTCC;
+        }
     }           
     // Attempt to Send daily report and if enabled, diagnostic reports
+   
     SendSavedDailyReports();   
     SendHourlyDiagnosticReport();
     turnOffSIM();

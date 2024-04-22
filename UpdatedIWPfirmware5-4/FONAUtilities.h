@@ -27,6 +27,9 @@ extern char MainphoneNumber[]; // Upside Wireless
 extern char origMainphoneNumber[15]; //set when originally programming the system
 extern char DebugphoneNumber[];
 extern char origDebugphoneNumber[15]; // Number for the Black Phone
+extern char monthlyReportNumber1[15]; // Number used to send Monthly Reports
+extern char monthlyReportNumber2[15]; // Number used to send Monthly Reports
+extern char monthlyReportNumber3[15]; // Number used to send Monthly Reports
 extern char CountryCode[]; // The country code for the country where the pump is installed
 extern char origCountryCode[6]; // The country code for the country where the pump is installed
 extern char SendingPhoneNumber[15]; //Number for the phone that sent the system a message
@@ -70,6 +73,7 @@ int ClearReceiveTextMessages(int MsgNum, int ClrMode);
 void CreateNoonMessage(int);
 void CreateAndSaveDailyReport(void);
 int SendSavedDailyReports(void);
+int SendMonthlyReports(int);
 void SendHourlyDiagnosticReport(void);
 void createDiagnosticMessage(void);
 //void checkDiagnosticStatus(void); //NOT CURRENTLY USED
@@ -80,6 +84,7 @@ void CheckIncommingTextMessages(void); // This routine is called to read and pro
 void ChangeCountryCode(void); // Changes the saved variable Country Code
 void UpdateSendingPhoneNumber(void); //If the sending number is local, remove country code
 void ChangeDailyReportPhoneNumber(void); //Changes the number used for daily reports MainphoneNumber[]
+void ChangeMonthlyReportPhoneNumbers(void); // Add or Delete phone numbers from the Monthly Report List
 void PhonenumberToEEPROM(int,char*); // Saves a phone number string to two EEPROM locations
 void EEPROMtoPhonenumber(int EEoffset, char *DynamicPhoneNumber);
 void Initialize4G(void);  //Send AT commands to initialize the ublox chip

@@ -26,8 +26,11 @@
 // *** Global Variables *******************************************************
 // ****************************************************************************
 char origDebugphoneNumber[] = "+17177784498"; // Number for Upside
+char monthlyReportNumber1[] = "0";
+char monthlyReportNumber2[] = "0";
+char monthlyReportNumber3[] = "0";
 char DebugphoneNumber[15]; //Defined during initialization 
-char origMainphoneNumber[]="+17177784498"; // Upside
+char origMainphoneNumber[]="+17176837803";  // Randy +17177784498"; // Upside
 // Zambia char origMainphoneNumber[]="+17176837803"; // Randy
 char MainphoneNumber[15]; //This is set to origMainphoneNumber during initialization but can be changed via text message
 //char origMainphoneNumber[]="+17176837704"; //Sue
@@ -84,8 +87,6 @@ int hour_msg_sent = 0;  //set to 1 when the hourly message has been sent
 int turnOffSIM() {
     int SIM_OFF = 0;  // Assume the SIM is not off
     if ((!threeG && !fourG && statusPin) || (threeG && !statusPin) || (fourG && statusPin)) { //Checks see if the Fona is ON 1=Yes so turn it off
-        
-        
         if(threeG){
             pwrKeyPin = 0;//PORTBbits.RB6 = 0; //set low pin 15 for 2000ms to turn OFF Fona
             delayMs(3200);
@@ -93,11 +94,7 @@ int turnOffSIM() {
         }
         if(fourG){
             sendMessage("AT+CPWROFF\r\n");
-            delayMs(1000);  //testing showed that it took the CLICK board about 250ms to turn off.
-            while(statusPin){        
-                sendMessage("AT+CPWROFF\r\n");
-                delayMs(1000);  //try again
-            }
+            delayMs(2000);  //testing showed that it took the CLICK board about 250ms to turn off.
         }
         else{
             pwrKeyPin = 0;//PORTBbits.RB6 = 0; //set low pin 15 for 2000ms to turn OFF Fona
@@ -141,7 +138,7 @@ int turnOnSIM() {
             pwrKeyPin = 1;//PORTBbits.RB6 = 1; // Reset the Power Key so it can be turned off later (pin 15)
         }
         if(fourG){
-            while(!statusPin){
+            if(!statusPin){
                 pwrKeyPin = 1; // When using CLICK, a HIGH makes PWR_ON for the chip go low
                 pwrKeyDirection = 0; //RB6 pwrKeyPin // Make pwrKeyPin an output
                 delayMs(2000); //4G Board
@@ -257,10 +254,10 @@ int CheckNetworkConnection(void) //True when there is a network connection
         return network_status;
     }
     
-    if(threeG == 1){
+    else if(threeG == 1){
         network_status = CheckNetworkConnection3G();
     }
-    else {
+    else { // should only be here for 2G
     if (netLightPin){ //(PORTBbits.RB14 == 1)
     // If the light is ON when we get here, we know we don't have network if it
     // goes low and stays low for more than 1.15 seconds (TMR1 = 18000).  In this
@@ -594,6 +591,11 @@ void interpretSMSmessage(void){
         // Change the phone number used for daily reports
         ChangeDailyReportPhoneNumber();
     }
+    strncpy(CmdMatch,"AWMR",4);
+    if(strncmp(CmdMatch, ReceiveTextMsg,4)==0){
+        // Change the phone number used for daily reports
+        ChangeMonthlyReportPhoneNumbers();
+    }
 }
 
 /*********************************************************************
@@ -798,6 +800,140 @@ void ChangeDailyReportPhoneNumber(){
             phoneNumber = MainphoneNumber;
         }
     }
+    // Should we wait for the message to be sent before trying to work with the FONA?
+    delayMs(40);
+}
+/*********************************************************************
+ * Function: void ChangeMonthlyReportPhoneNumbers()
+ * Input: None - must be called after the readSMSMessage
+ *                ReceiveTextMsg has the message string in it 
+ * Output: None
+ * Overview: An SMS message was received (in the string ReceiveTextMsg)
+ *           with the AWMR prefix indicating that
+ *           a phone number should be added to the list of
+ *           recipients of the Monthly message or should be removed form 
+ *           the list.
+ *           Expected Syntax AWMR #-XXXXXXXXXXXXX
+ *               # = 0 to disable messages and 1 to enable them 
+ *               XXX is the phone number (including country code) to send messages to. 
+ * Note: Library
+ * TestDate: not tested
+ ********************************************************************/
+void ChangeMonthlyReportPhoneNumbers(){
+    char MRphoneNumber[15];
+    char MsgPart[3]; // used when extracting enable/disable
+    int reportEnable = 0;
+    int num_variables = 0;
+    char localMsg[160];
+    localMsg[0] = 0;
+        
+    char *MsgPtr;
+    int msgLength=strlen(ReceiveTextMsg);
+    MsgPtr = ReceiveTextMsg;
+    // Extract the information provided.
+    while((MsgPtr < ReceiveTextMsg+msgLength-1)&&(num_variables < 2)){
+        // Skip the next command value
+        while(!((*MsgPtr > 0x2f)&&(*MsgPtr < 0x3a))&&(MsgPtr < ReceiveTextMsg+msgLength-1)){ // skip non-numbers
+            MsgPtr++;
+        } 
+        if(num_variables == 0){     // Get the Enable Disable value
+            MsgPart[0]=0;
+            while((((*MsgPtr > 0x2f)&&(*MsgPtr < 0x3a)))&&(MsgPtr < ReceiveTextMsg+msgLength-1)){ // accept numbers
+                strncat(MsgPart,MsgPtr,1);
+                MsgPtr++;
+            }
+            reportEnable = atoi(MsgPart);
+            num_variables++;
+        }
+        else {     // Get the phone number
+            MRphoneNumber[0]=0;
+            // Skip to Phone Number
+            while((*MsgPtr != 0x2b)&&!((*MsgPtr > 0x2f)&&(*MsgPtr < 0x3a))&&(MsgPtr < ReceiveTextMsg+msgLength-1)){ // skip non-numbers except + 
+                MsgPtr++;
+            }
+            if(*MsgPtr != '+'){
+                strncat(MRphoneNumber,"+",1);
+            }
+            while(((*MsgPtr == 0x2b)||((*MsgPtr > 0x2f)&&(*MsgPtr < 0x3a)))&&(MsgPtr < ReceiveTextMsg+msgLength-1)){ // accept numbers and +
+                strncat(MRphoneNumber,MsgPtr,1);
+                MsgPtr++;
+        }
+            num_variables++;
+        }      
+    }
+    // Now work with what was received
+    
+    msgLength=strlen(MRphoneNumber);
+    if(num_variables < 1){
+        //concat(localMsg,"Missing information (Enable (0/1)-PhoneNumber including country code)\n");
+        concat(localMsg,"Missing information\n");
+    }
+    if(reportEnable==0){
+        // remove the phone number from the list
+        concat(localMsg,MRphoneNumber);
+        //concat(localMsg," removed from Monthly Reports list\n");
+        concat(localMsg," removed\n");
+        if(strcmp(monthlyReportNumber1,MRphoneNumber)==0){ // This is it
+            monthlyReportNumber1[0]=0;//delete 1
+        }
+        else if(strcmp(monthlyReportNumber2,MRphoneNumber)==0){ // This is it
+            monthlyReportNumber2[0]=0;//delete 1
+        }
+        else if(strcmp(monthlyReportNumber3,MRphoneNumber)==0){ // This is it
+            monthlyReportNumber3[0]=0;//delete 1
+        }
+        else{
+            // send message Number not found in Monthly Reports list
+            localMsg[0]=0;      
+            concat(localMsg,MRphoneNumber);
+            //concat(localMsg," not found in Monthly Reports list\n");
+            concat(localMsg," not found\n");
+            
+        }
+    }else{
+        // add the phone number to the list
+        concat(localMsg,MRphoneNumber);
+        //concat(localMsg," has been added to Monthly Reports list\n");
+        concat(localMsg," added to Monthly Reports\n");
+        // find empty slot
+        if(strlen(monthlyReportNumber1)< 3){
+            // add to slot 1
+            monthlyReportNumber1[0]=0;
+            MsgPtr = MRphoneNumber;
+            while(MsgPtr < MRphoneNumber+msgLength){
+                strncat(monthlyReportNumber1,MsgPtr,1);
+                MsgPtr++;
+            }
+        }
+        else if(strlen(monthlyReportNumber2)< 3){
+            // add to slot 2
+            monthlyReportNumber2[0]=0;
+            MsgPtr = MRphoneNumber;
+            while(MsgPtr < MRphoneNumber+msgLength){
+                strncat(monthlyReportNumber2,MsgPtr,1);
+                MsgPtr++;
+            }
+        }
+        else if(strlen(monthlyReportNumber3)< 3){
+            // add to slot 3
+            monthlyReportNumber3[0]=0;
+            MsgPtr = MRphoneNumber;
+            while(MsgPtr < MRphoneNumber+msgLength){
+                strncat(monthlyReportNumber3,MsgPtr,1);
+                MsgPtr++;
+            }
+        }
+        else{
+            localMsg[0] = 0;
+            // send message that there are no free slots for Monthly Reports
+            concat(localMsg,"Monthly Reports list is full\n");
+        }
+        
+    }
+   // Tell the user what was done
+    phoneNumber = SendingPhoneNumber;
+    sendTextMessage(localMsg);   //note, this now returns 1 if successfully sent to FONA
+    phoneNumber = MainphoneNumber;
     // Should we wait for the message to be sent before trying to work with the FONA?
     delayMs(40);
 }
@@ -1065,35 +1201,52 @@ void OneTimeStatusReport(){
             // Need to make dataMessage
             char localMsg[160];
             localMsg[0] = 0;
-            concat(localMsg," Priming Distance: ");
-            EEProm_Read_Float(EELongestPrime,&EEFloatData);
+            concat(localMsg,"Priming Distance: ");
+            EEProm_Read_Float(EELongestPrimeCurrent,&EEFloatData);
             floatToString(EEFloatData, reportValueString);
             concat(localMsg, reportValueString);
-            concat(localMsg,"\n System Revision: ");
+            concat(localMsg," - ");
+            EEProm_Read_Float(EEpromMonthlyPrime,&EEFloatData);
+            floatToString(EEFloatData, reportValueString);
+            concat(localMsg, reportValueString);
+            concat(localMsg,"\nLeak Rate: ");
+            EEProm_Read_Float(EELeakRateLongCurrent,&EEFloatData);
+            floatToString(EEFloatData, reportValueString);
+            concat(localMsg, reportValueString);
+            concat(localMsg," - ");
+            EEProm_Read_Float(EEpromMonthlyLeak,&EEFloatData);
+            floatToString(EEFloatData, reportValueString);
+            concat(localMsg, reportValueString);
+            concat(localMsg,"\nVolume: ");
+            longToString(DailyVolume, reportValueString); // save msg room by only doing integer
+            concat(localMsg, reportValueString);
+            concat(localMsg," - ");
+            longToString(MonthlyVolume, reportValueString);
+            concat(localMsg, reportValueString);
+            concat(localMsg,"\nSystem Rev: ");
             floatToString(codeRevisionNumber, reportValueString);
             concat(localMsg, reportValueString);
 
-            concat(localMsg,"\n Battery: ");
+            concat(localMsg,"\nBattery: ");
             floatToString(batteryLevel(), reportValueString); 
             concat(localMsg,reportValueString);
-            concat(localMsg,"\n Network: ");
+            concat(localMsg,"\nNetwork: ");
             readFonaSignalStrength();
             concat(localMsg,SignalStrength); //change this to interpreting as bad,weak,good
-            concat(localMsg,"\n Date: ");
+            concat(localMsg,"\nDay-Month: ");
             floatToString(BcdToDec(getDateI2C()),reportValueString);
             concat(localMsg,reportValueString);
-            concat(localMsg,"\n Month: ");
+            concat(localMsg," - ");
             floatToString(BcdToDec(getMonthI2C()),reportValueString);
             concat(localMsg,reportValueString);
-            concat(localMsg,"\n Time: ");
+            concat(localMsg,"\nTime: ");
             //other places I add 1313 to hour
             floatToString(hour,reportValueString);
             concat(localMsg,reportValueString);
             concat(localMsg,":");
             floatToString(minuteVTCC,reportValueString);
             concat(localMsg,reportValueString);
-            
-            
+    
             sendTextMessage(localMsg);   //note, this now returns 1 if successfully sent to FONA
             // I think I  need to wait until it is sent.  See the Daily Report code.
             char CmdMatch[]="CMGS:";  // we only look for letters in reply so exclude leading +
@@ -1603,6 +1756,64 @@ void CreateAndSaveDailyReport(void){
 }
 
 /*********************************************************************
+ * Function: int SendMonthlyReports(int current_month)
+ * Input: the month that just ended
+ * Output: 1 right now we assume success
+ * Note:  Creates and send the Monthly report to up to three saved
+ *        phone numbers monthlyReportNumber1,2,3
+ *          Month = 
+ *          Max Prime:
+ *          Max Leak:
+ *          Total Volume:  
+ * 
+ * TestDate: 
+ ********************************************************************/
+int SendMonthlyReports(int current_month){
+    int success = 1;  // assume success 
+    char LocalString[20];  
+    SMSMessage[0] = 0; //reset SMS message array to be empty
+    LocalString[0] = 0;
+    
+    concat(SMSMessage,"Month = ");
+    floatToString(prevMonth, LocalString);
+    concat(SMSMessage, LocalString);
+    concat(SMSMessage,"\nMax Prime: ");
+    EEProm_Read_Float(EEpromMonthlyPrime, &EEFloatData);
+    floatToString(EEFloatData, LocalString);
+    concat(SMSMessage, LocalString);    
+    concat(SMSMessage,"\nMax Leak: ");
+    EEProm_Read_Float(EEpromMonthlyLeak, &EEFloatData);
+    floatToString(EEFloatData, LocalString);
+    concat(SMSMessage, LocalString);    
+    concat(SMSMessage,"\nTotal Volume: ");
+    EEProm_Read_Float(EEpromMonthlyVolume, &EEFloatData);
+    longToString(EEFloatData, LocalString);
+    concat(SMSMessage, LocalString);  
+    if(strlen(monthlyReportNumber1)> 3){
+        phoneNumber = monthlyReportNumber1;  // Make sure we are sending to the proper destination
+        sendTextMessage(SMSMessage); 
+    }
+    if(strlen(monthlyReportNumber2)> 3){
+        phoneNumber = monthlyReportNumber2;  // Make sure we are sending to the proper destination
+        sendTextMessage(SMSMessage); 
+    }
+    if(strlen(monthlyReportNumber3)> 3){
+        phoneNumber = monthlyReportNumber3;  // Make sure we are sending to the proper destination
+        sendTextMessage(SMSMessage); 
+    }
+    // Reset the Monthly Variables
+    longestPrimeMonthly = 0; // Reset the Priming Variable & EEProm value
+    EEProm_Write_Float(EEpromMonthlyPrime,&longestPrimeMonthly);
+    leakRateLongMonthly = 0; // Reset the Max Leak Variable & EEProm value
+    EEProm_Write_Float(EEpromMonthlyLeak,&leakRateLongMonthly);
+    MonthlyVolume = 0; // Reset the total monthly volume and EEProm value
+    EEProm_Write_Float(EEpromMonthlyVolume,&MonthlyVolume);
+            
+    phoneNumber = MainphoneNumber;
+    return success;
+}  
+
+/*********************************************************************
  * Function: int SendSavedDailyReports2(void)
  * Input: none - Assumes the FONA is already ON
  * Output: the number of daily reports still waiting to be sent
@@ -1646,7 +1857,8 @@ int SendSavedDailyReports(void){
         phoneNumber = MainphoneNumber;  // Make sure we are sending to the proper destination
         ready = sendTextMessage(SMSMessage);  
         
-        if(threeG == 1){
+        if((threeG == 1)||(fourG ==1)){
+            // Assume if we have a network connection that the message was sent.
         }
         else {
         // Check to see if the FONA replies with ERROR or not

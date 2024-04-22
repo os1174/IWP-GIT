@@ -70,7 +70,8 @@ extern const float BatteryDyingThreshold;
 
 
 extern int prevDay;
-extern int prevHour; // used during debug to send noon message every hour
+extern int prevHour; 
+extern int prevMonth;
 extern int invalid;
 extern double timeStep;
 extern int prevTimer2;
@@ -98,6 +99,9 @@ extern int EEpromDiagStatus; // 1 means report hourly to diagnostic phone number
 extern int EEpromCountryCode;
 extern int EEpromMainphoneNumber;// also needs 107
 extern int EEpromDebugphoneNumber; //also needs 109
+extern int EEpromMonthlyVolume; // Total volume pumped during the month - updated daily
+extern int EEpromMonthlyLeak; // Maximum leak rate reported during the month
+extern int EEpromMonthlyPrime; // Maximum priming distance reported during the month
 extern int EEpromCodeRevisionNumber;
 
 
@@ -115,6 +119,8 @@ extern const int hmsSampleThreshold; //Controls sampling rate of HMS filter
 extern char active_volume_bin;
 
 extern float longestPrime; // total upstroke for the longest priming event of the day
+extern float longestPrimeMonthly; //longest for the current month
+extern float MonthlyVolume; // Total volume current month, updated daily.
 extern char MainphoneNumber[]; // Upside Wireless
 extern char DebugphoneNumber[]; // Number for the Black Phone
 //extern char* phoneNumber; // Number Used to send text message report (daily or hourly)
@@ -148,6 +154,7 @@ extern int hour_msg_sent;  //set to 1 when hourly message has been sent
 extern float longestPrime; // total upstroke for the longest priming event of the day
 
 extern float leakRateLong; // largest leak rate recorded for the day
+extern float leakRateLongMonthly; //largest leak rate for this current month
 extern float leakRateCurrent; //last valid leak rate calculated
 //extern float batteryFloat; // batteryLevel measured by scaled A/D
 extern float BatteryLevelArray[3]; //Used to keep track of the rate of change of the battery voltage
@@ -163,6 +170,8 @@ extern float volume1618;
 extern float volume1820;
 extern float volume2022;
 extern float volume2224;
+extern float MonthlyVolume;
+extern float DailyVolume;
 extern float EEFloatData;
 
 // other global variables

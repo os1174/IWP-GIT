@@ -9,7 +9,7 @@
 #include <p24FV32KA302.h>
 
 
-float codeRevisionNumber = 6.32;  //Current as of 4/4/2024 - Version intended for installation in Zambia 2024
+float codeRevisionNumber = 6.42;  //Current as of 4/22/2024 - Version intended for installation in Zambia 2024
 
 int __attribute__((space(eedata))) eeData; // Global variable located in EEPROM
 
@@ -80,6 +80,9 @@ int DailyReportEEPromStart = 23; // this is the EEPROM slot that Daily Report Me
 int EEpromCountryCode = 103;
 int EEpromMainphoneNumber = 104;// Needs two floats
 int EEpromDebugphoneNumber = 106; //Needs two floats
+int EEpromMonthlyVolume = 108; // Total volume pumped during the month - updated daily
+int EEpromMonthlyLeak = 109; // Maximum leak rate reported during the month
+int EEpromMonthlyPrime = 110; // Maximum priming distance reported during the month
 int DiagSystemWentToSleep = 123; // This will be set to 1 if the system went to sleep
 int DiagCauseOfSystemReset = 124; // This is a number indicating why the system reset itself (need better comment to desribe the options)
 int EEpromDiagStatus = 125; // 1 means report hourly to diagnostic phone number, 0 = don't report
@@ -94,7 +97,8 @@ int EEpromCodeRevisionNumber = 127;
 int prevTimer2 = 0; // Should initially begin at zero
 
 //int prevMinute;
-int prevHour; // used during debug to send noon message every hour
+int prevHour; // used to know if its time to do hourly activities
+int prevMonth; // used to know if its time to do monthly activities
 int invalid = 0;
 float angleCurrent = 0;
 float anglePrevious = 0;
@@ -171,8 +175,10 @@ char hourVTCC = 0;
 char dateVTCC = 0;
 char monthVTCC = 0;
 
-float longestPrime = 0; // total upstroke fo the longest priming event of the day
+float longestPrime = 0; // total upstroke for the longest priming event of the day
+float longestPrimeMonthly = 0; // total upstroke for the longest priming event of the month
 float leakRateLong = 0; // largest leak rate recorded for the day
+float leakRateLongMonthly = 0; // largest leak rate recorded for the month
 float leakRateCurrent = 0; // latest valid leak rate calculated
 //float batteryFloat;
 float BatteryLevelArray[3];
@@ -193,6 +199,8 @@ float volume1618 = 0;
 float volume1820 = 0;
 float volume2022 = 0;
 float volume2224 = 0;
+float MonthlyVolume = 0;
+float DailyVolume = 0;
 float EEFloatData = 0; // to be used when trying to write a float to EEProm EEFloatData = 123.456 then pass as &EEFloatData
 int hour = 0; // Hour of day according to chosen time source; external RTCC or internal VTCC
 int min = 0; // Minute of day according to chosen time source; external RTCC or internal VTCC
@@ -221,12 +229,12 @@ float date = 0; // date variable
 ********************************************************************/
 void initialization(void) {   
     char localSec = 0;
-    char localMin = 31;
-    char localHr = 13;
-    char localWkday = 4;
-    char localDate = 18;
-    char localMonth = 05;
-    char localYear = 23;
+    char localMin = 00;
+    char localHr = 9;
+    char localWkday = 2;
+    char localDate = 15;
+    char localMonth = 04;
+    char localYear = 24;
     initialIOpinConfiguration(); // Set input/output, digital/analog, default state of pins
     pumping_Led = 1;   //Turn on pumping led - red So we know we are in the start of the Initialization Function
     
@@ -353,6 +361,7 @@ void initialization(void) {
     hour = localHr; // If both are working RTCC and VTCC have the same hour
     active_volume_bin = hour / 2; //Which volume bin are we starting with
     prevHour = hour; //We use previous hour to see if it has been an hour since we did some things
+    prevMonth = monthVTCC; 
 
     if(fourG){
         // We will use Arduino code to initialize CLIK boards prior to connecting 
@@ -1256,6 +1265,8 @@ void SaveVolumeToEEProm(void) {
             EEProm_Write_Float(EELongestPrime,&EEFloatData);
             longestPrime = 0;  // Reset the Prime Variable & EEProm value
             EEProm_Write_Float(EELongestPrimeCurrent,&longestPrime);
+            
+            DailyVolume = 0; // Reset the daily volume at the start of the day
             break;
         case 1:
             EEProm_Write_Float(EEVolume2224+1, &volume02);
@@ -1570,9 +1581,11 @@ void initialIOpinConfiguration(void){
     PORTAbits.RA0 = 0;    //Currently used to monitor loop in volume code
     TRISAbits.TRISA0 = 0; //Make pin an output
     //RA1 
-    //simVioPin - Set here and not changed in the code
-    PORTAbits.RA1 = 1;    //Tells FONA what logic level to use for UART
-    TRISAbits.TRISA1 = 0; //Make pin an output
+    //simVioPin - This is now used to pass VBATT to the 4G board
+    // This means that > 4V will be on this pin.  The Control board trace
+    // is cut to prevent damage.  This becomes a floating pin
+    PORTAbits.RA1 = 1;    // unused
+    TRISAbits.TRISA1 = 1; //Make pin an input
     
     //RA2 
     //PIC_OSCI (oscillator input)
