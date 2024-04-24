@@ -307,7 +307,9 @@ int WaitForPrime(float primeAngleCurrent){
  ********************************************************************/
 float Volume(void){
     float angleDelta = 0; // Stores the difference between the current and previous angles
-    float upStrokeExtract = 0; // Stores the cumulative lifting water handle movement in degrees
+    float StrokeDelta = 0;
+    //float upStrokeExtract = 0; // Stores the cumulative lifting water handle movement in degrees
+    float StrokeupStrokeExtract = 0; // This is the value using the stroke start and stop
     float volumeEvent; //Liters of water dispensed
     int stopped_pumping_index = 0; // Used to time how long the handle is stopped
     int dispensing = 1;  // Assume we are still dispensing water
@@ -325,6 +327,7 @@ float Volume(void){
     float MaxDown = angleCurrent;  // Bottom of the latest pumping stroke
     int StrokeOver= 0;  //Binary indicating that the latest pumping stroke has ended
     int StrokeStarting = 1; //Binary indicating that a new pumping stroke has begun
+    float strokeStartingAngle = angleCurrent;
     float MinStrokeRange = 10;  //degrees, roughly moving handle through 10"
     int NumStrokes = 0;     // The number of pumping strokes dispensing water
     ///////////////////////////
@@ -365,10 +368,11 @@ float Volume(void){
             }
             // Are they lifting water so we should add this delta to our sum?           
             if(angleDelta < 0) {  //Determines direction of handle movement
-                upStrokeExtract += (-1) * angleDelta;   //If the valve is moving downward, the movement is added to an
+                //upStrokeExtract += (-1) * angleDelta;   //If the valve is moving downward, the movement is added to an
                 if(angleCurrent < MaxUp-MinStrokeRange ){ // A new stroke may be starting
                     if(StrokeStarting==0){//Yes this is the start of a new stroke
                         StrokeStarting = 1;
+                        strokeStartingAngle = MaxUp;
                         StrokeOver = 0;
                         MaxDown = angleCurrent;
                     }
@@ -380,9 +384,13 @@ float Volume(void){
             else{// The handle is not lifting water
                 if(angleCurrent > MaxDown+MinStrokeRange){ //Pumping stroke may be finished
                     if(StrokeOver == 0){ //Yes the pumping stroke is complete
-                        NumStrokes++;
                         StrokeOver = 1;
-                        StrokeStarting = 0;
+                        if(StrokeStarting==1){
+                            NumStrokes++;
+                            StrokeDelta = abs(strokeStartingAngle - angleCurrent);
+                            StrokeupStrokeExtract = StrokeupStrokeExtract + StrokeDelta;
+                            StrokeStarting = 0;
+                        }
                         MaxUp = angleCurrent;
                     }
                     if(angleCurrent > MaxUp){
@@ -404,11 +412,11 @@ float Volume(void){
         pumpMinutes += 60; // in case the hour incremented and you get negative minutes, make them positive
     }
     pumpSeconds += pumpMinutes * 60; // add minutes to the seconds
-    volumeEvent = CalculateVolume(upStrokeExtract,pumpSeconds); // Find volume lifted
+    volumeEvent = CalculateVolume(StrokeupStrokeExtract,pumpSeconds); // Find volume lifted
     // We will assume that the leak rate is slow enough that it does not effect
     // the volume pumped calculation
     sendDebugMessage("Number of pumping strokes = ",NumStrokes); //Debug
-    sendDebugMessage("handle movement in degrees ", upStrokeExtract);  //Debug
+    sendDebugMessage("handle movement in degrees ", StrokeupStrokeExtract);  //Debug
     sendDebugMessage("handle moving for (sec) ", pumpSeconds);  //Debug
     sendDebugMessage("Volume Event = ", volumeEvent);  //Debug
     sendDebugMessage("  for time slot ", hour);  //Debug

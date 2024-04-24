@@ -9,7 +9,7 @@
 #include <p24FV32KA302.h>
 
 
-float codeRevisionNumber = 6.42;  //Current as of 4/22/2024 - Version intended for installation in Zambia 2024
+float codeRevisionNumber = 6.52;  //Current as of 4/24/2024 - Version intended for installation in Zambia 2024
 
 int __attribute__((space(eedata))) eeData; // Global variable located in EEPROM
 
