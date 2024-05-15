@@ -39,7 +39,7 @@ const int max_pause_while_pumping = 102;  // max pause for 10Hz 10; // was 102 w
                                           // For 1 sec, this should be 15625/hmsSampleThreshold
 long leakRateTimeOut = 1200000; // Maximum number of milliseconds to wait for water to drain when calculating leak rate (20 minutes)
 const int decimalAccuracy = 3; // Number of decimal places to use when converting floats to strings
-const float angleThresholdSmall = 0.1; //number close to zero to determine if handle is moving w/o interpreting accelerometer noise as movement.
+const float angleThresholdSmall = 0.3; //number close to zero to determine if handle is moving w/o interpreting accelerometer noise as movement.
 const float handleMovementThreshold = 5.0; // When the handle has moved this many degrees from rest, we start calculating priming 
 //Not sure what variable this not refers to
 //roughly based on calculations from India Mark II sustainability report that 
