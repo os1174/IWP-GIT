@@ -55,6 +55,7 @@ int MaxSMSmsgSize = 30;  // number of slots available on SIM to store text messa
 int FONAisON = 0; //Keeps track of whether the FONA has been turned on
 int threeG = 0;     // 2G = 0, 3G = 1;
 int fourG = 1;      // 4G = 1;
+int SendNoonMsg = 1;  // Default to sending noon messages
 
 //char phoneNumber[] = "+2330548345382"; // Number for the Black Phone
 //char phoneNumber[] = "+17177784498"; // Number for Upside Wireless
@@ -596,6 +597,16 @@ void interpretSMSmessage(void){
         // Change the phone number used for daily reports
         ChangeMonthlyReportPhoneNumbers();
     }
+    strncpy(CmdMatch,"AWENM",5);
+    if(strncmp(CmdMatch, ReceiveTextMsg,5)==0){
+        // Enable Noon messages to be sent
+        SendNoonMsg = 1;
+    }
+    strncpy(CmdMatch,"AWDNM",5);
+    if(strncmp(CmdMatch, ReceiveTextMsg,5)==0){
+        // Disable Noon messages to be sent
+        SendNoonMsg = 0;
+    }
 }
 
 /*********************************************************************
@@ -756,9 +767,10 @@ void updateClockCalendar(){
  * Overview: An SMS message was received (in the string ReceiveTextMsg)
  *           with the AWPN prefix indicating that
  *           the phone number to be sent the daily report,MainphoneNumber[], should be changed.
- *           If the system restarts the original number in EEPROM will again be used.
- *           This function does not overwrite the EEPROM
-  * Note: Library
+ *           This new number is saved to EEPROM so it will be used if 
+ *              the system restarts
+ * 
+ *   * Note: Library
  * TestDate: not tested
  ********************************************************************/
 void ChangeDailyReportPhoneNumber(){

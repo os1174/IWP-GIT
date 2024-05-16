@@ -63,9 +63,10 @@
 #pragma config DSBOREN = ON // Deep Sleep Zero-Power BOR Enable bit (Deep Sleep BOR enabled in Deep Sleep)
 #pragma config DSWDTEN = ON // Deep Sleep Watchdog Timer Enable bit (DSWDT enabled)
 
-int WaitForPrime(float); // Measures the meters water needed to be lifted in order to prime the pump
-float Volume(void);      // Measures the volume (L) of water pumped 
+int WaitForPrimeNew(float);
+float VolumeNew(void);
 float LeakRate(float);  // Measure the leak rate in L/hr
+float LiftingWater(int); // Measures the volume of water lifted (either priming or volume)
 int TechAtPumpActivities(int);
 //void TechAtPumpActivities(void); // Check for text messages and light diagnostic LEDs
 void HourlyActivities(void);  //Things we do once each hour
@@ -173,9 +174,9 @@ void main(void)
         angleCurrent = angleAtRest;  // Priming movement includes the movement 
                                      // needed to declare that someone has started pumping
         pumping_Led = 1;   //Turn on pumping led - red
-        int primed = WaitForPrime(angleCurrent);  // Measure effort to Prime Pump
+        int primed = WaitForPrimeNew(angleCurrent);  // Measure effort to Prime Pump
         if(primed){
-            float volumeDispensed = Volume();   // Measure the Volume Pumped
+            float volumeDispensed = VolumeNew();   // Measure the Volume Pumped
             float leakMeasured = LeakRate(volumeDispensed); // Measure the Leak Rate (L/hr)
             sendDebugMessage("Pumped (L): ",volumeDispensed); //Debug
             sendDebugMessage("Leak Rate (L/hr) = ",leakMeasured); //Debug
@@ -184,7 +185,7 @@ void main(void)
 	} // End of main loop
 } // End of main program
 /*********************************************************************
- * Function: int WaitForPrime(void)
+ * Function: int WaitForPrimeNew(void)
  * Input: angle in degrees of the handle when it is assumed to be at rest before
  *        the user began to pump.  This is made available via the global variable
  *        angleCurrent.  Prior to calling this function, angleCurrent should be
@@ -202,16 +203,12 @@ void main(void)
  *            as longestPrime             
  * TestDate: NOT TESTED
  ********************************************************************/
-int WaitForPrime(float primeAngleCurrent){
-    //float angleCurrent = 0; // Stores the current angle of the pump handle
-    float angleDelta = 0; // Stores the difference between the current and previous angles
-	float upStrokePrime = 0; // Stores the cumulative lifting water handle movement in degrees
+int WaitForPrimeNew(float primeAngleCurrent){
     float upStrokePrimeMeters = 0; // Stores the upstroke in meters
-    int stopped_pumping_index = 0;
+    float volumeMoved = 0;
     int primed = 0;  // Assume that the pump is not primed
-    int quit = 0;    // Assume the user pumps until the pump primes
-    
-    sendDebugMessage("\n\n We are in the Priming Loop ", -0.1);  //Debug
+        
+    sendDebugMessage("\n\n Priming has Started ", -0.1);  //Debug
     anglePrevious = primeAngleCurrent;
     water_Led = 0;  // Assume no Water at first 
     waterPresenceSensorOnOffPin = 1; //turn on the water presence sensor
@@ -220,61 +217,16 @@ int WaitForPrime(float primeAngleCurrent){
         waterPresenceSensorOnOffPin = 0; //turn OFF the water presence sensor
     }
     else{
-        // Record the time that priming effort begins
-        // needed in the calculation of measured volume required to prime
-        int primeMinutes = minuteVTCC; // keeps track of loop minutes
-        float primeSeconds = secondVTCC; // keeps track of loop seconds
-        float primeSubSeconds = TMR2;
-        // Turn on the HMS sample timer
-        TMR4 = 0;
-        T4CONbits.TON = 1; // Starts 16-bit Timer4 (inc every 64usec)
-        while(readWaterSensor() != 0){ // Wait until there is water
-            ClearWatchDogTimer();     // It is unlikely that we will be priming for 
-                                      // 130sec without a stop, but we might
-            
-            primeAngleCurrent = getHandleAngle(); //gets the filtered current angle
-			angleDelta = primeAngleCurrent - anglePrevious;  //determines the amount of handle movement from last reading
-			anglePrevious = primeAngleCurrent;               //Prepares anglePrevious for the next loop
-            // Has the handle stopped moving?
-			if((angleDelta > (-1*angleThresholdSmall)) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
-                stopped_pumping_index++; // we want to stop if the user stops pumping
-                pumping_Led = 0;   //Turn off pumping led - red
-                if((stopped_pumping_index) > max_pause_while_priming){  // They quit trying for at least 10 seconds
-                    sendDebugMessage("        Stopped trying to prime   ", upStrokePrime);  //Debug
-                    quit = 1;
-                    waterPresenceSensorOnOffPin = 0; //turn OFF the water presence sensor
-                    break;
-                }
-			} else{
-                stopped_pumping_index=0;   // they are still trying
-                pumping_Led = 1;   //Turn on pumping led - red
-			}
-            // Are they lifting water so we should add this delta to our sum?            
-			if(angleDelta < 0) {  //Determines direction of handle movement
-                upStrokePrime += (-1) * angleDelta;                 //If the valve is moving downward, the movement is added to an
-										                            //accumulation var
-			}
-            while (TMR4 < hmsSampleThreshold); //fixes the sampling rate at about 102Hz
-            TMR4 = 0; //reset the timer before reading WPS            
-        }
-        if(!quit){ // Water was detected, we are not here because they quit
+       volumeMoved = LiftingWater(1); // the volume of water lifted prior to dispensing
+       // Did they quit before the pump was primed
+       if(readWaterSensor() == 0){// Water was detected, we are not here because they quit
             primed = 1;     // The pump has primed
             water_Led = 1;  // Turn on the Water LED   
         }
-        T4CONbits.TON = 0; // Turn off HMS sample timer
-        // Calculate the number of seconds that it took to prime the pump
-        primeSeconds = secondVTCC - primeSeconds; // get the number of seconds pumping from VTCC (in increments of 4 seconds)
-        primeSeconds += (TMR2 - primeSubSeconds) / 15625.0; // get the remainder of seconds (less than the 4 second increment)
-        primeMinutes = minuteVTCC - primeMinutes; // get the number of minutes pumping from VTCC
-        if (primeMinutes < 0) {
-            primeMinutes += 60; // in case the hour incremented and you get negative minutes, make them positive
-        }
-        primeSeconds += primeMinutes * 60; // add minutes to the seconds
-        if(quit){
-            primeSeconds = primeSeconds - 10;  //subtract time that handle was stopped when they quit
-        }
-        upStrokePrimeMeters = CalculateVolume(upStrokePrime,primeSeconds); // First get volume lifted
-        upStrokePrimeMeters = (upStrokePrimeMeters / 1000) / 0.000899; // convert to meters based on volume of rising main
+       else{
+           waterPresenceSensorOnOffPin = 0; // They quit without priming
+       }
+        upStrokePrimeMeters = (volumeMoved / 1000) / 0.000899; // convert to meters based on volume of rising main
         
 		if (upStrokePrimeMeters > longestPrime){                      // Updates the longestPrime  
 			longestPrime = upStrokePrimeMeters;
@@ -287,12 +239,12 @@ int WaitForPrime(float primeAngleCurrent){
         }
         sendDebugMessage("Prime Distance ", upStrokePrimeMeters);  //Debug
     }
-    angleCurrent = primeAngleCurrent;  // Starting point for the volume function
+    angleCurrent = getHandleAngle();  // Starting point for the volume function
     
   return primed; 
 }
 /*********************************************************************
- * Function: float Volume(void)
+ * Function: float VolumeNew(void)
  * Input: The last angle of the handle in the WaitForPrime function is held in the
  *        variable angleCurrent.  This is the starting point for the Volume
  *        event.
@@ -305,121 +257,10 @@ int WaitForPrime(float primeAngleCurrent){
  *            depending upon the current 2hr time window of the pumping             
  * TestDate: Modified 4/20/2023 NOT TESTED
  ********************************************************************/
-float Volume(void){
-    float angleDelta = 0; // Stores the difference between the current and previous angles
-    float StrokeDelta = 0;
-    //float upStrokeExtract = 0; // Stores the cumulative lifting water handle movement in degrees
-    float StrokeupStrokeExtract = 0; // This is the value using the stroke start and stop
+float VolumeNew(void){
     float volumeEvent; //Liters of water dispensed
-    int stopped_pumping_index = 0; // Used to time how long the handle is stopped
-    int dispensing = 1;  // Assume we are still dispensing water
-                         // (water is there and we are moving the handle)
-
-    anglePrevious = angleCurrent; // This is where priming left off
-    // Record the time that dispensing water begins
-    // needed in the calculation of measured volume required to prime
-    int pumpMinutes = minuteVTCC; // keeps track of loop minutes
-    float pumpSeconds = secondVTCC; // keeps track of loop seconds
-    float pumpSubSeconds = TMR2;
-    //////////  New variables used to count # of Strokes
-    angleCurrent = getHandleAngle();
-    float MaxUp = angleCurrent;    //Top of the latest pumping stroke
-    float MaxDown = angleCurrent;  // Bottom of the latest pumping stroke
-    int StrokeOver= 0;  //Binary indicating that the latest pumping stroke has ended
-    int StrokeStarting = 1; //Binary indicating that a new pumping stroke has begun
-    float strokeStartingAngle = angleCurrent;
-    float MinStrokeRange = 10;  //degrees, roughly moving handle through 10"
-    int NumStrokes = 0;     // The number of pumping strokes dispensing water
-    ///////////////////////////
-    sendDebugMessage("    we are entering the volume loop   ", -0.1);
-    // Turn on the HMS sample timer
-    TMR4 = 0;
-    T4CONbits.TON = 1; // Starts 16-bit Timer4 (inc every 64usec)
-    while(dispensing){  //Water is present and handle is moving
-        ClearWatchDogTimer();     // It is unlikely that we will be pumping for
-                                  // 130sec without a stop, but we might
-        if(readWaterSensor() != 0){ //Water not detected
-            dispensing = 0; // no longer dispensing water
-            water_Led = 0;  // Turn OFF the Water LED
-        }
-        else{
-            // DEBUG angleCurrent = getHandleAngleDEBUG();
-            angleCurrent = getHandleAngle(); //gets the filtered current angle
-            angleDelta = angleCurrent - anglePrevious;  //determines the amount of handle movement from last reading
-            anglePrevious = angleCurrent;               //Prepares anglePrevious for the next loop
-            /////////////////////////////////////
-            ///sendDebugMessage("", angleCurrent);     //Shows stream of angles in radians
-            /////////////////////////////////////
-
-            // Has the handle stopped moving?
-            if((angleDelta > (-1*angleThresholdSmall)) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
-                stopped_pumping_index++; // we want to stop if the user stops pumping
-                pumping_Led = 0;   //Turn OFF pumping led - red
-                if((stopped_pumping_index) > max_pause_while_pumping){  // They quit trying for at least 1 second
-                    dispensing = 0; // no longer moving the handle
-                    sendDebugMessage("        Stopped pumping   ", -1);  //Debug
-                    if(StrokeStarting == 1){
-                        NumStrokes++; //They stopped on a pumping stroke
-                    }
-                }
-            } else{
-                stopped_pumping_index=0;   // they are still trying
-                pumping_Led = 1;   //Turn ON pumping led - red
-            }
-            // Are they lifting water so we should add this delta to our sum?           
-            if(angleDelta < 0) {  //Determines direction of handle movement
-                //upStrokeExtract += (-1) * angleDelta;   //If the valve is moving downward, the movement is added to an
-                if(angleCurrent < MaxUp-MinStrokeRange ){ // A new stroke may be starting
-                    if(StrokeStarting==0){//Yes this is the start of a new stroke
-                        StrokeStarting = 1;
-                        strokeStartingAngle = MaxUp;
-                        StrokeOver = 0;
-                        MaxDown = angleCurrent;
-                    }
-                }
-                if(angleCurrent < MaxDown){
-                    MaxDown = angleCurrent; // Still lifting water
-                }
-            }
-            else{// The handle is not lifting water
-                if(angleCurrent > MaxDown+MinStrokeRange){ //Pumping stroke may be finished
-                    if(StrokeOver == 0){ //Yes the pumping stroke is complete
-                        StrokeOver = 1;
-                        if(StrokeStarting==1){
-                            NumStrokes++;
-                            StrokeDelta = abs(strokeStartingAngle - angleCurrent);
-                            StrokeupStrokeExtract = StrokeupStrokeExtract + StrokeDelta;
-                            StrokeStarting = 0;
-                        }
-                        MaxUp = angleCurrent;
-                    }
-                    if(angleCurrent > MaxUp){
-                        MaxUp = angleCurrent;
-                    }
-                }
-            }
-        }
-        while (TMR4 < hmsSampleThreshold); //fixes the sampling rate at about 102Hz
-        TMR4 = 0; //reset the timer before reading WPS           
-    }
-    // Pumping has stopped
-    T4CONbits.TON = 0; // Turn off HMS sample timer
-    // Calculate the number of seconds that water was being dispensed
-    pumpSeconds = secondVTCC - pumpSeconds; // get the number of seconds pumping from VTCC (in increments of 4 seconds)
-    pumpSeconds += (TMR2 - pumpSubSeconds) / 15625.0; // get the remainder of seconds (less than the 4 second increment)
-    pumpMinutes = minuteVTCC - pumpMinutes; // get the number of minutes pumping from VTCC
-    if (pumpMinutes < 0) {
-        pumpMinutes += 60; // in case the hour incremented and you get negative minutes, make them positive
-    }
-    pumpSeconds += pumpMinutes * 60; // add minutes to the seconds
-    volumeEvent = CalculateVolume(StrokeupStrokeExtract,pumpSeconds); // Find volume lifted
-    // We will assume that the leak rate is slow enough that it does not effect
-    // the volume pumped calculation
-    sendDebugMessage("Number of pumping strokes = ",NumStrokes); //Debug
-    sendDebugMessage("handle movement in degrees ", StrokeupStrokeExtract);  //Debug
-    sendDebugMessage("handle moving for (sec) ", pumpSeconds);  //Debug
-    sendDebugMessage("Volume Event = ", volumeEvent);  //Debug
-    sendDebugMessage("  for time slot ", hour);  //Debug
+    sendDebugMessage("\n   Dispensing Water", -0.1); 
+    volumeEvent = LiftingWater(0); // measure lifting when water is present
     // Add to the total volume dispensed today and this month
     DailyVolume = DailyVolume + volumeEvent;
     MonthlyVolume = MonthlyVolume + volumeEvent;
@@ -467,7 +308,169 @@ float Volume(void){
     }
     return volumeEvent;
 }
+/*********************************************************************
+ * Function: float LiftingWater(int waterPresent)
+ * Input: The last angle of the handle either when pumping began or at the end of the
+ *        WaitForPrime function is held in the
+ *        variable angleCurrent.  This is the starting point for the LiftingWater
+ *        measurement
+ *        stopWaterState: 0 if we should stop if no water is detected (Volume measurement)
+ *                        1 if we should stop when water is detected (Priming measurement)
+ * Output: The volume of water dispensed in liters.  
+ * Overview:  This function is called either by the Priming function to determine
+ *            how much water needed to be lifted to get water to the sensor
+ *            or by the Volume function to determine how much water was dispensed.
+ *            
+ *            The total lifting water angle of the handle is 
+ *            accumulated.  (stops when the handle is motionless for 1sec.)
+ *            Uses total lifting angle and time to determine the Liters of water
+ *            which has been moved              
+ * TestDate: Created 4/24/2024 NOT TESTED
+ ********************************************************************/
+float LiftingWater(int stopWaterState){
+    int measuringVolume = 0;
+    int measuringPrime = 0;
+    float angleDelta = 0; // Stores the difference between the current and previous angles
+    float StrokeDelta = 0;
+    //float upStrokeExtract = 0; // Stores the cumulative lifting water handle movement in degrees
+    float StrokeupStrokeExtract = 0; // This is the value using the stroke start and stop
+    float volumeEvent = 0; //Liters of water dispensed
+    int stopped_pumping_index = 0; // Used to time how long the handle is stopped
+    int lifting = 1;  // Assume we are still lifting water
+                         // (When priming, water is not there and we are moving the handle)
+                         //  (For Volume, water is there and we are moving the handle)
 
+    anglePrevious = angleCurrent; // This is where priming left off
+    // Record the time that dispensing water begins
+    // needed in the calculation of measured volume required to prime
+    int pumpMinutes = minuteVTCC; // keeps track of loop minutes
+    float pumpSeconds = secondVTCC; // keeps track of loop seconds
+    float pumpSubSeconds = TMR2;
+    
+    angleCurrent = getHandleAngle();
+    float MaxUp = angleCurrent;    //Top of the latest pumping stroke
+    float MaxDown = angleCurrent;  // Bottom of the latest pumping stroke
+    int StrokeOver= 0;  //Binary indicating that the latest pumping stroke has ended
+    int StrokeStarting = 1; //Binary indicating that a new pumping stroke has begun
+    float strokeStartingAngle = angleCurrent;
+    float MinStrokeRange = 10;  //degrees, roughly moving handle through 10"
+    int NumStrokes = 0;     // The number of pumping strokes dispensing water
+    
+    if(stopWaterState == 0){measuringVolume = 1;} // Are we priming or measuring volume
+    else{measuringPrime = 1;}
+ 
+    ///////////////////////////
+    // Turn on the HMS sample timer
+    TMR4 = 0;
+    T4CONbits.TON = 1; // Starts 16-bit Timer4 (inc every 64usec)
+    while(lifting){  //Water has not reached stopWaterState and handle is moving
+        ClearWatchDogTimer();     // It is unlikely that we will be pumping for
+                                  // 130sec without a stop, but we might
+        if((readWaterSensor() != 0)&& measuringVolume){ //Water not detected when dispensing
+            lifting = 0; // no longer lifting water
+            water_Led = 0;  // Turn OFF the Water LED
+        } else if((readWaterSensor() == 0)&& measuringPrime){
+            lifting = 0; // lifting has changed to dispensing
+            water_Led = 1; // Turn ON the Water LED
+        }
+        else{
+            // DEBUG angleCurrent = getHandleAngleDEBUG();
+            angleCurrent = getHandleAngle(); //gets the filtered current angle
+            angleDelta = angleCurrent - anglePrevious;  //determines the amount of handle movement from last reading
+            anglePrevious = angleCurrent;               //Prepares anglePrevious for the next loop
+            /////////////////////////////////////
+            ///sendDebugMessage("", angleCurrent);     //Shows stream of angles in radians
+            /////////////////////////////////////
+            // Has the handle stopped moving?
+            if((angleDelta > (-1*angleThresholdSmall)) && (angleDelta < angleThresholdSmall)){   //Determines if the handle is at rest
+                stopped_pumping_index++; // we want to stop if the user stops pumping
+                pumping_Led = 0;   //Turn OFF pumping led - red
+                if((stopped_pumping_index > max_pause_while_pumping)&& measuringVolume){  // They quit trying to pump water for at least 1 second
+                    lifting = 0; // no longer moving the handle
+                    sendDebugMessage("        Stopped Pumping   ", -1);  //Debug
+                   
+                    if(StrokeStarting == 1){
+                        NumStrokes++; //They stopped on a pumping stroke
+                    }
+                }
+                if((stopped_pumping_index > max_pause_while_priming)&& measuringPrime){ // They quit trying to prime for at least 10 seconds
+                    lifting = 0; // no longer moving the handle
+                    sendDebugMessage("        Stopped Priming   ", -1);  //Debug
+                   
+                    if(StrokeStarting == 1){
+                        NumStrokes++; //They stopped on a pumping stroke
+                    }
+                }
+            }else{
+                stopped_pumping_index=0;   // they are still trying
+                pumping_Led = 1;   //Turn ON pumping led - red
+                }
+            // Are they lifting water so we should add this delta to our sum?           
+            if(angleDelta < 0) {  //Determines direction of handle movement
+                //upStrokeExtract += (-1) * angleDelta;   //If the valve is moving downward, the movement is added to an
+                if(angleCurrent < MaxUp-MinStrokeRange ){ // A new stroke may be starting
+                    if(StrokeStarting==0){//Yes this is the start of a new stroke
+                        StrokeStarting = 1;
+                        strokeStartingAngle = MaxUp;
+                        StrokeOver = 0;
+                        MaxDown = angleCurrent;
+                    }
+                }
+                if(angleCurrent < MaxDown){
+                    MaxDown = angleCurrent; // Still lifting water
+                }
+            }
+            else{// The handle is not lifting water
+                if(angleCurrent > MaxDown+MinStrokeRange){ //Pumping stroke may be finished
+                    if(StrokeOver == 0){ //Yes the pumping stroke is complete
+                        StrokeOver = 1;
+                        if(StrokeStarting==1){
+                            NumStrokes++;
+                            StrokeDelta = abs(strokeStartingAngle - angleCurrent);
+                            StrokeupStrokeExtract = StrokeupStrokeExtract + StrokeDelta;
+                            StrokeStarting = 0;
+                        }
+                        MaxUp = angleCurrent;
+                    }
+                    if(angleCurrent > MaxUp){
+                        MaxUp = angleCurrent;
+                    }
+                }
+            }
+        }
+        while (TMR4 < hmsSampleThreshold); //fixes the sampling rate at about 102Hz
+        TMR4 = 0; //reset the timer before reading WPS           
+    }
+    // Pumping has stopped
+    T4CONbits.TON = 0; // Turn off HMS sample timer
+    // Calculate the number of seconds that water was being dispensed
+    pumpSeconds = secondVTCC - pumpSeconds; // get the number of seconds pumping from VTCC (in increments of 4 seconds)
+    pumpSeconds += (TMR2 - pumpSubSeconds) / 15625.0; // get the remainder of seconds (less than the 4 second increment)
+    pumpMinutes = minuteVTCC - pumpMinutes; // get the number of minutes pumping from VTCC
+    if (pumpMinutes < 0) {
+        pumpMinutes += 60; // in case the hour incremented and you get negative minutes, make them positive
+    }
+    pumpSeconds += pumpMinutes * 60; // add minutes to the seconds
+    if(StrokeupStrokeExtract > 0){
+        volumeEvent = CalculateVolume(StrokeupStrokeExtract,pumpSeconds); // Find volume lifted
+    }
+    // We will assume that the leak rate is slow enough that it does not effect
+    // the volume pumped calculation
+    
+    if(measuringVolume){ 
+        sendDebugMessage("Stopped Dispensing", -0.1); 
+        sendDebugMessage("Volume Dispensed = ", volumeEvent);  //Debug
+        sendDebugMessage("  for time slot ", hour);  //Debug
+    }else{
+        sendDebugMessage("Stopped Priming", -0.1);
+        sendDebugMessage("Volume Lifted to Prime = ", volumeEvent);  //Debug
+    }
+    sendDebugMessage("Number of pumping strokes = ",NumStrokes); //Debug
+    sendDebugMessage("handle movement in degrees ", StrokeupStrokeExtract);  //Debug
+    sendDebugMessage("handle moving for (sec) ", pumpSeconds);  //Debug
+    
+    return volumeEvent;
+}
  /*********************************************************************
  * Function: float LeakRate(float volumeEvent)
  * Input: the number of liters reported as having been pumped by the Volume Function
@@ -483,6 +486,7 @@ float Volume(void){
 float LeakRate(float volumeEvent){
     sendDebugMessage("\n We are in the Leak Rate Loop ", -0.1);  //Debug
     int validLeakRate = 1; //Assume we can measure leak rate
+    leakRateCurrent = 0;  //Assume a minimum leak rate unless updated
     long leakDurationCounter = 100; // The user stopped pumping for 1 second before DEBUG made leakDurationCounter a long variable to ensure space for max time
                                    // we get here (100Hz leak sample rate)
     float angleAtRest = angleCurrent; // This is where pumping left off
@@ -661,9 +665,11 @@ void HourlyActivities(void){
         }
     }           
     // Attempt to Send daily report and if enabled, diagnostic reports
-   
-    SendSavedDailyReports();   
-    SendHourlyDiagnosticReport();
+    if(SendNoonMsg == 1){
+        SendSavedDailyReports();   
+        SendHourlyDiagnosticReport();    
+    }
+    
     turnOffSIM();
     prevHour = hour; // update so we know this is not the start of a new hour 
 }

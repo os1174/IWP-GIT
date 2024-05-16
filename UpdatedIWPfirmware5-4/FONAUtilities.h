@@ -51,6 +51,7 @@ extern int MaxSMSmsgSize;  // number of slots available on SIM to store text mes
 extern int FONAisON; //Keeps track of whether the FONA has been turned on
 extern int threeG; // This is set to a 1 if the system is using a 3G Cell phone board
 extern int fourG; //This is set to a  1 if the system is using a 4G cell board
+extern int SendNoonMsg; // if this is 1, noon messages are sent, if 0 they are not.
 
 // ****************************************************************************
 // *** Function Prototypes ****************************************************

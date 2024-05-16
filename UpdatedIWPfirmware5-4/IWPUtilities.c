@@ -9,7 +9,7 @@
 #include <p24FV32KA302.h>
 
 
-float codeRevisionNumber = 6.52;  //Current as of 4/24/2024 - Version intended for installation in Zambia 2024
+float codeRevisionNumber = 6.7;  //Current as of 5/16/2024 - Version intended for installation in Zambia 2024
 
 int __attribute__((space(eedata))) eeData; // Global variable located in EEPROM
 
@@ -83,6 +83,7 @@ int EEpromDebugphoneNumber = 106; //Needs two floats
 int EEpromMonthlyVolume = 108; // Total volume pumped during the month - updated daily
 int EEpromMonthlyLeak = 109; // Maximum leak rate reported during the month
 int EEpromMonthlyPrime = 110; // Maximum priming distance reported during the month
+int EEpromVolumeSlope = 111;  // slope of the line used to calculate volume from total angle
 int DiagSystemWentToSleep = 123; // This will be set to 1 if the system went to sleep
 int DiagCauseOfSystemReset = 124; // This is a number indicating why the system reset itself (need better comment to desribe the options)
 int EEpromDiagStatus = 125; // 1 means report hourly to diagnostic phone number, 0 = don't report
@@ -180,6 +181,7 @@ float longestPrimeMonthly = 0; // total upstroke for the longest priming event o
 float leakRateLong = 0; // largest leak rate recorded for the day
 float leakRateLongMonthly = 0; // largest leak rate recorded for the month
 float leakRateCurrent = 0; // latest valid leak rate calculated
+float VolumeSlope = 0;  // the slope of the angle to Volume curve.
 //float batteryFloat;
 float BatteryLevelArray[3];
 char active_volume_bin = 0; //keeps track of which of the 12 volume time slots is being updated
@@ -300,13 +302,11 @@ void initialization(void) {
     water_Led = 1;  // Turn on the Water led - green  Moving through the Initialization Functions
 
     //Initialize the handle position array
-    // Fill array with the current unfiltered position
-    signed int initxValue = readAdc(xAxisChannel) - signedNumAdjustADC;
-    signed int inityValue = readAdc(yAxisChannel) - signedNumAdjustADC;       
-    float initAngle = atan2(inityValue, initxValue) * radToDegConst; //returns angle in degrees
+    // Make 51 calls to getHandleAngle() so the filter array is filled
     int i;
+    float initialAngle = 0;
     for (i = 0; i < 51; i++) {
-        angleArray[i] = initAngle;
+        initialAngle = getHandleAngle();
     }
 
     // We may be waking up because the battery was dead or the WatchDog expired. 
@@ -322,6 +322,9 @@ void initialization(void) {
         EEPROMtoPhonenumber(EEpromDebugphoneNumber,DebugphoneNumber); //get Debug Phone Number from EEPROM
         EEPROMtoPhonenumber(EEpromCountryCode,CountryCode); //get Country Code from EEPROM
         EEProm_Read_Float(EEpromDiagStatus,&diagnostic); //Get the current Diagnostic Status from EEPROM
+        EEProm_Read_Float(EEpromMonthlyVolume,&MonthlyVolume); //Get the current Monthly Volume so far from EEPROM
+        EEProm_Read_Float(EEpromMonthlyLeak,&leakRateLongMonthly); //Get the current Monthly Max Leak rate so far from EEPROM
+        EEProm_Read_Float(EEpromMonthlyPrime,&longestPrimeMonthly); //Get the current Monthly Max Prime so far from EEPROM
         initializeVTCC(0, BcdToDec(getMinuteI2C()), BcdToDec(getHourI2C()), BcdToDec(getDateI2C()), BcdToDec(getMonthI2C()));
         // Reset the phone numbers from EEPROM
     } else { 
@@ -1512,35 +1515,26 @@ int HasTheHandleStartedMoving(float rest_position){
  *         already primed this is the amount of water that was dispensed.
  * Overview:  Both the amount of handle movement and the speed the handle is 
  *            moving are needed to get a good estimate of volume.  This function
- *            implements a quadratic equation empirically determined on the
- *            Bitner pump.             
+ *            implements two different linear equations empirically determined on the
+ *            Bitner pump and limited data from two Zambia pumps.             
  * TestDate: Changed 4/20/2023 NOT TESTED
  ********************************************************************/
 float CalculateVolume(float pumpingMovement,float pumpSeconds){
+    float degPerSec = pumpingMovement / pumpSeconds;
     float pumpLiters = 0;
-    pumpingMovement = degToRad(pumpingMovement);    // convert to radians
-    float timePerRad = pumpSeconds / pumpingMovement;
-    if (timePerRad < quadVertex) { // if the time per radian is below this value, the result will be undefined
-        timePerRad = quadVertex;    // if above case, set the time per radian to the minimum defined value
-    }
-    // calculate volume based on quadratic trend line
-    //pumpLiters = ((-b - sqrt((b*b) - (4 * (a) * (c - (timePerRad))))) / (2*a)) * pumpingMovement;
-    //sendDebugMessage("Single Equation Volume Pumped = ", pumpLiters);  //Debug
-    pumpLiters = 0;  // Default if for some reason the ifs below fail
-    if (timePerRad >= 2.25) {        //If determined to be in slow pumping cluster
-        pumpLiters = (.0227*(timePerRad)+.2571)*pumpingMovement;
-        sendDebugMessage("We are in the slow pumping cluster", -0.1);
-    }
-    if (timePerRad < 2.25 && timePerRad >= 1.75) {   //If determined to be in medium pumping cluster
-        pumpLiters = (.0128*(timePerRad)+.3208)*pumpingMovement;
-        sendDebugMessage("We are in the medium pumping cluster", -0.1);
-    }
-    if (timePerRad < 1.75) {            //If determined to be in fast pumping cluster
-        pumpLiters = (.0106*(timePerRad)+.4138)*pumpingMovement;
+    
+    if (degPerSec >= 50) {   //If determined to be in fast pumping cluster
+        pumpLiters = 0.0026*(pumpingMovement) + 3.4445;
         sendDebugMessage("We are in the fast pumping cluster", -0.1);
+    }
+    if (degPerSec < 50) {    //If determined to be in slow pumping cluster
+        pumpLiters = 0.008*(pumpingMovement) + 0.6739;
+        sendDebugMessage("We are in the slow pumping cluster", -0.1);
     }
     return pumpLiters;
 }
+
+
 /*********************************************************************
  * Function: void _T2Interrupt(void)
  * Input: none

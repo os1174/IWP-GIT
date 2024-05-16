@@ -103,6 +103,7 @@ extern int EEpromMonthlyVolume; // Total volume pumped during the month - update
 extern int EEpromMonthlyLeak; // Maximum leak rate reported during the month
 extern int EEpromMonthlyPrime; // Maximum priming distance reported during the month
 extern int EEpromCodeRevisionNumber;
+extern int EEpromVolumeSlope;  // the location to store the slope of the angle to Volume curve.
 
 
 
